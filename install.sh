@@ -214,6 +214,14 @@ main() {
     if [[ "${method}" == "1" ]] || [[ "${method}" == "curl" ]]; then
         install_shell_integration
         add_to_shell_rc
+
+        if ! "${INSTALL_DIR}/jump" --version >/dev/null 2>&1; then
+             echo ""
+             echo -e "${RED}Warning: The installed binary does not seem to work on this system.${NC}"
+             echo -e "${YELLOW}This is likely due to a GLIBC version mismatch.${NC}"
+             echo "Please run: rm ${INSTALL_DIR}/jump"
+             echo "And install via cargo: cargo install --git https://github.com/JoseMaurette1/jump"
+        fi
     fi
 
     echo ""

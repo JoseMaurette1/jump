@@ -37,6 +37,24 @@ After install, restart your shell so PATH updates apply.
 
 ---
 
+## Troubleshooting
+
+### "version `GLIBC_2.xx` not found"
+
+If you see an error like `/lib/x86_64-linux-gnu/libc.so.6: version 'GLIBC_2.39' not found`, your system's `glibc` is older than the one used to build the release binary.
+
+To fix this:
+
+1. Remove the broken binary:
+   ```bash
+   rm ~/.local/bin/jump
+   ```
+
+2. Install from source using Cargo:
+   ```bash
+   cargo install --git https://github.com/JoseMaurette1/jump
+   ```
+
 ## Command-Line Options
 
 ```bash
