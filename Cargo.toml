@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "A minimal, Vim-inspired directory navigation tool for the terminal"
 license = "MIT"
-repository = "https://github.com/username/jump"
+repository = "https://github.com/JoseMaurette1/jump"
 keywords = ["terminal", "navigation", "vim", "tui"]
 categories = ["command-line-utilities"]
 
