@@ -168,12 +168,16 @@ main() {
     echo -e "${GREEN}Installing jump...${NC}"
     echo ""
 
-    # Check if running in automated mode
-    if [[ -n "${JUMP_INSTALL_METHOD}" ]]; then
-        local method="${JUMP_INSTALL_METHOD}"
-    else
+    # Detect if stdin is a tty (interactive) or piped
+    if [[ -t 0 ]]; then
+        # Interactive mode - show menu
         show_menu
         read method
+    else
+        # Piped mode - auto-select curl (most reliable)
+        method="curl"
+        echo "Auto-selecting curl (piped mode detected)..."
+        echo ""
     fi
 
     local platform version
