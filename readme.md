@@ -18,9 +18,14 @@ A minimal, Vim-inspired directory navigation tool for the terminal — built in 
 
 ## Installation
 
-Linux / macOS (Apple Silicon) / WSL:
+Linux / WSL:
 ```bash
 curl -sSL https://raw.githubusercontent.com/JoseMaurette1/jump/master/install.sh | bash
+```
+
+macOS (Apple Silicon):
+```bash
+curl -sSL https://raw.githubusercontent.com/JoseMaurette1/jump/master/install.sh | zsh
 ```
 
 Windows (PowerShell):
