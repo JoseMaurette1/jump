@@ -17,11 +17,11 @@ jobs:
             target: x86_64-unknown-linux-gnu
             artifact_name: jump-linux-x86_64
             artifact: jump-linux-x86_64.tar.gz
-          - os: macos-13
+          - os: macos-latest
             target: x86_64-apple-darwin
             artifact_name: jump-darwin-x86_64
             artifact: jump-darwin-x86_64.tar.gz
-          - os: macos-14
+          - os: macos-latest
             target: aarch64-apple-darwin
             artifact_name: jump-darwin-aarch64
             artifact: jump-darwin-aarch64.tar.gz
@@ -76,5 +76,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/**/*.tar.gz
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.zip
           generate_release_notes: true
