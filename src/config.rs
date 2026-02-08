@@ -49,7 +49,7 @@ OPTIONS:
 
 KEYBINDINGS:
     A-Z             Select label
-    hh              Toggle hidden files
+    Ctrl+H          Toggle hidden files
     Backspace       Reset selection
     Esc / Ctrl+C    Cancel",
         NAME, VERSION, NAME

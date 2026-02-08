@@ -47,17 +47,6 @@ impl App {
             }
             AppState::PartialMatch => {
                 if let Some(first) = self.first_char {
-                    // Check for hh toggle: only works if no HH label exists
-                    if first == 'H' && c == 'H' {
-                        let has_hh_label = labels::find_label(&self.labels, 'H', 'H').is_some();
-                        if !has_hh_label {
-                            self.toggle_hidden();
-                            self.first_char = None;
-                            self.state = AppState::Selecting;
-                            return;
-                        }
-                    }
-                    // Regular label navigation
                     if let Some(idx) = labels::find_label(&self.labels, first, c) {
                         self.navigate_to(idx);
                     } else {

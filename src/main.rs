@@ -52,6 +52,7 @@ fn run(config: config::Config) -> Result<()> {
             InputEvent::Escape => app.cancel(),
             InputEvent::Backspace => app.go_up(),
             InputEvent::Enter => app.confirm(),
+            InputEvent::ToggleHidden => app.toggle_hidden(),
             InputEvent::None => {}
         }
     }

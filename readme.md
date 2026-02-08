@@ -326,9 +326,9 @@ Never blocks shell after exit
 | `Backspace` | Go up one directory |
 | `Enter` | Confirm selection |
 | `Esc` / `Ctrl+C` | Cancel |
-| `hh` | Toggle hidden files |
+| `Ctrl+H` | Toggle hidden files |
 
-Hidden files (files/directories starting with `.`) are hidden by default. Press `hh` to show them.
+Hidden files (files/directories starting with `.`) are hidden by default. Press `Ctrl+H` to show them.
 
 Performance Goals
 

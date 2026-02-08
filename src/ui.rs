@@ -43,7 +43,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
     .block(
         Block::default()
             .borders(Borders::ALL)
-            .title(" Enter=confirm  Backspace=up  Esc=cancel  hh=toggle hidden "),
+            .title(" Enter=confirm  Backspace=up  Esc=cancel  Ctrl+H=toggle hidden "),
     );
 
     frame.render_widget(path_block, chunks[0]);
