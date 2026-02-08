@@ -1,4 +1,5 @@
 use std::env;
+use std::io::Write;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const NAME: &str = env!("CARGO_PKG_NAME");
@@ -20,11 +21,13 @@ pub fn parse_args() -> ParseResult {
         match arg.as_str() {
             "-h" | "--help" => {
                 print_help();
+                std::io::stdout().flush().ok();
                 return ParseResult::Exit;
             }
             "-v" | "--version" => {
                 println!("{} {}", NAME, VERSION);
-                return ParseResult::Exit;
+                std::io::stdout().flush().ok();
+                std::process::exit(0);
             }
             _ => {}
         }
