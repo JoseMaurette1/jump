@@ -25,6 +25,10 @@ jobs:
             target: aarch64-apple-darwin
             artifact_name: jump-darwin-aarch64
             artifact: jump-darwin-aarch64.tar.gz
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: jump-windows-x86_64
+            artifact: jump-windows-x86_64.zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -37,12 +41,20 @@ jobs:
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
 
-      - name: Package
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
         run: |
           mkdir -p dist
           cd "target/${{ matrix.target }}/release"
           tar czf "../../../dist/${{ matrix.artifact }}" jump
           cd ../../..
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Compress-Archive -Path "target\\${{ matrix.target }}\\release\\jump.exe" -DestinationPath "dist\\${{ matrix.artifact }}" -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
