@@ -10,24 +10,45 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: jump-linux-x86_64
+            artifact: jump-linux-x86_64.tar.gz
+          - os: macos-13
+            target: x86_64-apple-darwin
+            artifact_name: jump-darwin-x86_64
+            artifact: jump-darwin-x86_64.tar.gz
+          - os: macos-14
+            target: aarch64-apple-darwin
+            artifact_name: jump-darwin-aarch64
+            artifact: jump-darwin-aarch64.tar.gz
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
       - name: Build
-        run: cargo build --release
+        run: cargo build --release --target ${{ matrix.target }}
 
       - name: Package
         run: |
-          cd target/release
-          tar czf ../../jump-linux-x86_64.tar.gz jump
-          cd ../..
+          mkdir -p dist
+          cd "target/${{ matrix.target }}/release"
+          tar czf "../../../dist/${{ matrix.artifact }}" jump
+          cd ../../..
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: jump-linux-x86_64
-          path: jump-linux-x86_64.tar.gz
+          name: ${{ matrix.artifact_name }}
+          path: dist/${{ matrix.artifact }}
 
   release:
     needs: build
@@ -38,7 +59,6 @@ jobs:
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
-          name: jump-linux-x86_64
           path: artifacts
 
       - name: Create Release
