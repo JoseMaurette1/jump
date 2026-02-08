@@ -9,10 +9,26 @@ A minimal, Vim-inspired directory navigation tool for the terminal — built in 
 ## TL;DR
 
 - **What:** Keyboard-driven directory jumping
-- **Where:** Linux, macOS, WSL
+- **Where:** Linux, macOS (Apple Silicon), WSL, Windows
 - **How:** Rust + terminal UI
 - **Why:** Faster navigation, fewer keystrokes, zero fluff
 - **Philosophy:** Movement primitive, not a file manager
+
+---
+
+## Installation
+
+Linux / macOS (Apple Silicon) / WSL:
+```bash
+curl -sSL https://raw.githubusercontent.com/JoseMaurette1/jump/master/install.sh | bash
+```
+
+Windows (PowerShell):
+```powershell
+irm https://raw.githubusercontent.com/JoseMaurette1/jump/master/install.ps1 | iex
+```
+
+After install, restart your shell so PATH updates apply.
 
 ---
 
@@ -131,15 +147,15 @@ Supported
 
 Linux
 
-macOS
+macOS (Apple Silicon only)
 
 WSL (Windows Subsystem for Linux)
 
+Windows (PowerShell)
+
 Not Supported
 
-Native Windows (by design)
-
-Reason: the tool relies on Unix-like terminal behavior and shell integration.
+macOS Intel
 
 How It Works (High Level)
 
@@ -181,6 +197,24 @@ jump() {
 
 Now jump behaves like a built-in command.
 
+PowerShell
+
+Add this to your PowerShell profile:
+```powershell
+function jump { Set-Location (jump.exe @args) }
+Set-Alias j jump
+```
+
+Frontend (install page)
+
+The `frontend/` folder contains a small static page with copy-to-clipboard
+install commands. Open `frontend/index.html` directly or run:
+
+```bash
+cd frontend
+python3 -m http.server 5173
+```
+
 Technical Stack
 Language
 
@@ -219,8 +253,11 @@ jump
 │   └── config.rs      # optional config
 ├── shell
 │   └── jump.sh        # shell wrapper example
+├── frontend
+│   ├── index.html     # small install page
+│   └── app.js         # copy-to-clipboard logic
 ├── Cargo.toml
-└── README.md
+└── readme.md
 
 Label Generation Strategy
 
