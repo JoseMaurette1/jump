@@ -15,8 +15,14 @@ detect_platform() {
     esac
 
     case "$(uname -m)" in
-        x86_64|amd64)  arch="x86_64" ;;
         arm64|aarch64) arch="aarch64" ;;
+        x86_64|amd64)
+            if [[ "${os}" == "darwin" ]]; then
+                echo "macOS Intel is not supported. Please use an Apple Silicon Mac."
+                exit 1
+            fi
+            arch="x86_64"
+            ;;
         *)             echo "Unsupported architecture: $(uname -m)"; exit 1 ;;
     esac
 
