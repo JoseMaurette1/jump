@@ -16,6 +16,19 @@ pub fn draw(frame: &mut Frame, app: &App) {
         .split(frame.area());
 
     let path_display = app.current_dir.display().to_string();
+
+    // Hidden files status indicator
+    let hidden_status = if app.show_hidden {
+        "[HIDDEN: ON]"
+    } else {
+        "[HIDDEN: OFF]"
+    };
+    let hidden_style = if app.show_hidden {
+        Style::default().fg(Color::Green)
+    } else {
+        Style::default().fg(Color::DarkGray)
+    };
+
     let path_block = Paragraph::new(Line::from(vec![
         Span::styled(" ", Style::default()),
         Span::styled(
@@ -24,11 +37,13 @@ pub fn draw(frame: &mut Frame, app: &App) {
                 .fg(Color::Blue)
                 .add_modifier(Modifier::BOLD),
         ),
+        Span::styled("  ", Style::default()),
+        Span::styled(hidden_status, hidden_style),
     ]))
     .block(
         Block::default()
             .borders(Borders::ALL)
-            .title(" Enter=confirm  Backspace=up  Esc=cancel "),
+            .title(" Enter=confirm  Backspace=up  Esc=cancel  hh=toggle hidden "),
     );
 
     frame.render_widget(path_block, chunks[0]);

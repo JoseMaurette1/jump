@@ -32,6 +32,18 @@ After install, restart your shell so PATH updates apply.
 
 ---
 
+## Command-Line Options
+
+```bash
+jump           # Start with hidden files hidden (default)
+jump -a        # Start with hidden files visible
+jump --all     # Same as -a
+jump -h        # Show help
+jump -v        # Show version
+```
+
+---
+
 ## Problem Statement
 
 Terminal navigation is slow and repetitive.
@@ -306,13 +318,17 @@ Disappears on selection or cancel
 
 Never blocks shell after exit
 
-Keybindings (Initial)
-Key	Action
-F	Enter jump mode
-Esc	Cancel
-A-Z	Select label
+## Keybindings
 
-Configurable later.
+| Key | Action |
+|-----|--------|
+| `A-Z` | Select label (2-character sequence) |
+| `Backspace` | Go up one directory |
+| `Enter` | Confirm selection |
+| `Esc` / `Ctrl+C` | Cancel |
+| `hh` | Toggle hidden files |
+
+Hidden files (files/directories starting with `.`) are hidden by default. Press `hh` to show them.
 
 Performance Goals
 

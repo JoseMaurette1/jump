@@ -16,6 +16,7 @@ pub struct App {
     pub entries: Vec<DirEntry>,
     pub labels: Vec<Label>,
     pub first_char: Option<char>,
+    pub first_label_char: Option<char>,
     pub current_dir: PathBuf,
     pub show_hidden: bool,
 }
@@ -29,6 +30,7 @@ impl App {
             entries,
             labels,
             first_char: None,
+            first_label_char: None,
             current_dir: start_dir,
             show_hidden,
         }
@@ -39,20 +41,36 @@ impl App {
 
         match self.state {
             AppState::Selecting => {
-                let matching = labels::filter_by_first(&self.labels, c);
-                if !matching.is_empty() {
-                    self.first_char = Some(c);
+                // Check for 2-key combo: hh = toggle hidden
+                if c == 'H' {
+                    self.first_label_char = Some(c);
                     self.state = AppState::PartialMatch;
+                } else {
+                    let matching = labels::filter_by_first(&self.labels, c);
+                    if !matching.is_empty() {
+                        self.first_char = Some(c);
+                        self.state = AppState::PartialMatch;
+                    }
                 }
             }
             AppState::PartialMatch => {
-                if let Some(first) = self.first_char {
+                // Check if first was 'H' and second is also 'H' -> toggle hidden
+                if self.first_label_char == Some('H') && c == 'H' {
+                    self.toggle_hidden();
+                    self.first_label_char = None;
+                    self.state = AppState::Selecting;
+                } else if let Some(first) = self.first_char {
+                    // Regular label navigation
                     if let Some(idx) = labels::find_label(&self.labels, first, c) {
                         self.navigate_to(idx);
                     } else {
                         self.first_char = None;
+                        self.first_label_char = None;
                         self.state = AppState::Selecting;
                     }
+                } else {
+                    self.first_label_char = None;
+                    self.state = AppState::Selecting;
                 }
             }
             _ => {}
@@ -82,6 +100,15 @@ impl App {
             self.first_char = None;
             self.state = AppState::Selecting;
         }
+    }
+
+    pub fn toggle_hidden(&mut self) {
+        self.show_hidden = !self.show_hidden;
+        self.entries =
+            fs::scan_directories(&self.current_dir, self.show_hidden).unwrap_or_default();
+        self.labels = labels::generate_labels(self.entries.len());
+        self.first_char = None;
+        self.state = AppState::Selecting;
     }
 
     pub fn confirm(&mut self) {
