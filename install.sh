@@ -5,6 +5,15 @@ REPO="JoseMaurette1/jump"
 INSTALL_DIR="${HOME}/.local/bin"
 SHELL_SCRIPT_DIR="${HOME}/.local/share/jump"
 
+# Check for required tools
+if ! command -v curl &> /dev/null; then
+    echo "Error: curl is required but not installed."
+    echo "Install curl first:"
+    echo "  - macOS: brew install curl"
+    echo "  - Linux: sudo apt install curl"
+    exit 1
+fi
+
 detect_platform() {
     local os arch
 
@@ -44,7 +53,21 @@ download_and_install() {
     trap "rm -rf ${tmp_dir}" EXIT
 
     echo "Downloading jump ${version} for ${platform}..."
+
+    # Check if release exists first
+    if ! curl -sSL -o /dev/null -w "%{http_code}" "${url}" | grep -q "200"; then
+        echo "Error: Release not found for ${platform}"
+        echo "URL: ${url}"
+        echo "The release may still be building. Wait a few minutes and try again."
+        exit 1
+    fi
+
     curl -sSL "${url}" | tar xz -C "${tmp_dir}"
+
+    if [[ ! -f "${tmp_dir}/jump" ]]; then
+        echo "Error: Failed to extract jump binary"
+        exit 1
+    fi
 
     mkdir -p "${INSTALL_DIR}"
     mv "${tmp_dir}/jump" "${INSTALL_DIR}/jump"
