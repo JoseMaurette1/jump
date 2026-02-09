@@ -53,6 +53,8 @@ fn run(config: config::Config) -> Result<()> {
             InputEvent::Backspace => app.go_up(),
             InputEvent::Enter => app.confirm(),
             InputEvent::ToggleHidden => app.toggle_hidden(),
+            InputEvent::ScrollUp => app.scroll_up(),
+            InputEvent::ScrollDown => app.scroll_down(),
             InputEvent::None => {}
         }
     }

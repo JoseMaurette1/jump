@@ -43,7 +43,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
     .block(
         Block::default()
             .borders(Borders::ALL)
-            .title(" Enter=confirm  Backspace=up  Esc=cancel  Ctrl+H=toggle hidden "),
+            .title(" Enter=confirm  Backspace=up  Esc=cancel  Ctrl+H=toggle hidden  j/k=scroll "),
     );
 
     frame.render_widget(path_block, chunks[0]);
@@ -56,7 +56,8 @@ pub fn draw(frame: &mut Frame, app: &App) {
     } else {
         app.entries
             .iter()
-            .zip(app.labels.iter())
+            .skip(app.scroll_offset)
+            .zip(app.labels.iter().skip(app.scroll_offset))
             .map(|(entry, label)| {
                 let label_style = match app.state {
                     AppState::PartialMatch if app.first_char == Some(label.chars[0]) => {
@@ -97,9 +98,17 @@ pub fn draw(frame: &mut Frame, app: &App) {
     };
 
     let title = match app.state {
-        AppState::Selecting => " type label ",
-        AppState::PartialMatch => " type second key ",
-        _ => " jump ",
+        AppState::Selecting => format!(
+            " type label ({}/{}) ",
+            app.scroll_offset + 1,
+            app.entries.len().max(1)
+        ),
+        AppState::PartialMatch => format!(
+            " type second key ({}/{}) ",
+            app.scroll_offset + 1,
+            app.entries.len().max(1)
+        ),
+        _ => " jump ".to_string(),
     };
 
     let list = List::new(items)

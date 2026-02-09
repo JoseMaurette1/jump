@@ -18,6 +18,7 @@ pub struct App {
     pub first_char: Option<char>,
     pub current_dir: PathBuf,
     pub show_hidden: bool,
+    pub scroll_offset: usize,
 }
 
 impl App {
@@ -31,6 +32,7 @@ impl App {
             first_char: None,
             current_dir: start_dir,
             show_hidden,
+            scroll_offset: 0,
         }
     }
 
@@ -69,6 +71,7 @@ impl App {
             self.labels = labels::generate_labels(self.entries.len());
             self.first_char = None;
             self.state = AppState::Selecting;
+            self.scroll_offset = 0;
         }
     }
 
@@ -83,6 +86,7 @@ impl App {
             self.labels = labels::generate_labels(self.entries.len());
             self.first_char = None;
             self.state = AppState::Selecting;
+            self.scroll_offset = 0;
         }
     }
 
@@ -93,6 +97,20 @@ impl App {
         self.labels = labels::generate_labels(self.entries.len());
         self.first_char = None;
         self.state = AppState::Selecting;
+        self.scroll_offset = 0;
+    }
+
+    pub fn scroll_up(&mut self) {
+        if self.scroll_offset > 0 {
+            self.scroll_offset = self.scroll_offset.saturating_sub(1);
+        }
+    }
+
+    pub fn scroll_down(&mut self) {
+        let max_scroll = self.entries.len().saturating_sub(1);
+        if self.scroll_offset < max_scroll {
+            self.scroll_offset = self.scroll_offset.saturating_add(1);
+        }
     }
 
     pub fn confirm(&mut self) {

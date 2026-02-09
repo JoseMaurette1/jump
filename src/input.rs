@@ -8,6 +8,8 @@ pub enum InputEvent {
     Backspace,
     Enter,
     ToggleHidden,
+    ScrollUp,
+    ScrollDown,
     None,
 }
 
@@ -29,6 +31,8 @@ pub fn read_key(timeout_ms: u64) -> Result<InputEvent> {
                 KeyCode::Esc => return Ok(InputEvent::Escape),
                 KeyCode::Backspace => return Ok(InputEvent::Backspace),
                 KeyCode::Enter => return Ok(InputEvent::Enter),
+                KeyCode::Char('j') => return Ok(InputEvent::ScrollDown),
+                KeyCode::Char('k') => return Ok(InputEvent::ScrollUp),
                 KeyCode::Char(c) => return Ok(InputEvent::Char(c)),
                 _ => {}
             }
