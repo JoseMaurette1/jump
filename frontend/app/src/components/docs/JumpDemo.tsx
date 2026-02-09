@@ -18,8 +18,6 @@ export function JumpDemo() {
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    let timeout: NodeJS.Timeout
-
     const runSimulation = async () => {
         setMode("shell")
         setCwd("~/projects")
