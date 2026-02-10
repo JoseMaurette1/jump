@@ -10,33 +10,87 @@ pub struct DirEntry {
     pub name: String,
 }
 
-pub fn scan_directories(dir: &Path, show_hidden: bool) -> Result<Vec<DirEntry>> {
-    let mut entries: Vec<DirEntry> = WalkDir::new(dir)
+#[derive(Debug, thiserror::Error)]
+pub enum ScanError {
+    #[error("Directory does not exist: {0}")]
+    NotFound(PathBuf),
+    #[error("Not a directory: {0}")]
+    NotDirectory(PathBuf),
+    #[error("Permission denied: {0}")]
+    PermissionDenied(PathBuf),
+    #[error("I/O error: {0}")]
+    IoError(#[from] std::io::Error),
+}
+
+pub fn scan_directories(dir: &Path, show_hidden: bool) -> Result<Vec<DirEntry>, ScanError> {
+    // Check if directory exists
+    if !dir.exists() {
+        return Err(ScanError::NotFound(dir.to_path_buf()));
+    }
+
+    // Check if path is a directory
+    if !dir.is_dir() {
+        return Err(ScanError::NotDirectory(dir.to_path_buf()));
+    }
+
+    let mut entries: Vec<DirEntry> = Vec::new();
+
+    // Use WalkDir with error handling
+    for entry in WalkDir::new(dir)
         .min_depth(1)
         .max_depth(1)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_dir())
-        .filter(|e| {
-            if show_hidden {
-                true
-            } else {
-                e.file_name()
-                    .to_str()
-                    .map(|s| !s.starts_with('.'))
-                    .unwrap_or(false)
+        .follow_links(false)
+        .contents_first(false)
+    {
+        match entry {
+            Ok(e) => {
+                // Only process directories
+                if !e.file_type().is_dir() {
+                    continue;
+                }
+
+                // Check hidden filter
+                if !show_hidden {
+                    if let Some(name) = e.file_name().to_str() {
+                        if name.starts_with('.') {
+                            continue;
+                        }
+                    }
+                }
+
+                entries.push(DirEntry {
+                    name: e.file_name().to_string_lossy().into_owned(),
+                    path: e.path().to_path_buf(),
+                });
             }
-        })
-        .map(|e| DirEntry {
-            name: e.file_name().to_string_lossy().into_owned(),
-            path: e.path().to_path_buf(),
-        })
-        .collect();
+            Err(e) => {
+                // Log permission errors but continue
+                if e.io_error().is_some() {
+                    continue;
+                }
+            }
+        }
+    }
 
     entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
     entries.truncate(MAX_LABELS);
 
     Ok(entries)
+}
+
+/// Safe way to get parent directory with fallbacks
+pub fn get_safe_parent(dir: &Path) -> Option<PathBuf> {
+    if dir == Path::new("/") {
+        return None;
+    }
+    dir.parent()
+        .map(|p| p.to_path_buf())
+        .filter(|pb| !pb.as_os_str().is_empty())
+}
+
+/// Check if a path is accessible (exists and readable)
+pub fn is_accessible(dir: &Path) -> bool {
+    dir.exists() && dir.is_dir()
 }
 
 #[cfg(test)]
@@ -56,5 +110,41 @@ mod tests {
         let current = env::current_dir().unwrap();
         let result = scan_directories(&current, true);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_scan_nonexistent() {
+        let result = scan_directories(Path::new("/nonexistent/path"), false);
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), ScanError::NotFound(_)));
+    }
+
+    #[test]
+    fn test_scan_not_directory() {
+        // Use a file instead of a directory
+        let temp_file = std::env::temp_dir().join("jump_test_file");
+        std::fs::write(&temp_file, "test").unwrap();
+        let result = scan_directories(&temp_file, false);
+        std::fs::remove_file(&temp_file).ok();
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), ScanError::NotDirectory(_)));
+    }
+
+    #[test]
+    fn test_get_safe_parent() {
+        let path = Path::new("/home/user/projects");
+        assert_eq!(get_safe_parent(path), Some(PathBuf::from("/home/user")));
+
+        let root = Path::new("/");
+        assert_eq!(get_safe_parent(root), None);
+
+        let single = Path::new("projects");
+        assert_eq!(get_safe_parent(single), None);
+    }
+
+    #[test]
+    fn test_is_accessible() {
+        assert!(is_accessible(Path::new("/tmp")));
+        assert!(!is_accessible(Path::new("/nonexistent")));
     }
 }

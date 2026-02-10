@@ -10,6 +10,11 @@ pub enum InputEvent {
     ToggleHidden,
     ScrollUp,
     ScrollDown,
+    PageUp,
+    PageDown,
+    GoToStart,
+    GoToEnd,
+    StartSearch,
     None,
 }
 
@@ -27,10 +32,28 @@ pub fn read_key(timeout_ms: u64) -> Result<InputEvent> {
                 return Ok(InputEvent::ToggleHidden);
             }
 
+            // Ctrl+D for page down
+            if modifiers.contains(KeyModifiers::CONTROL) && code == KeyCode::Char('d') {
+                return Ok(InputEvent::PageDown);
+            }
+
+            // Ctrl+U for page up
+            if modifiers.contains(KeyModifiers::CONTROL) && code == KeyCode::Char('u') {
+                return Ok(InputEvent::PageUp);
+            }
+
             match code {
                 KeyCode::Esc => return Ok(InputEvent::Escape),
                 KeyCode::Backspace => return Ok(InputEvent::Backspace),
                 KeyCode::Enter => return Ok(InputEvent::Enter),
+                KeyCode::Char('/') => return Ok(InputEvent::StartSearch),
+                KeyCode::Char('g') => {
+                    if modifiers.contains(KeyModifiers::SHIFT) {
+                        return Ok(InputEvent::GoToEnd);
+                    }
+                    return Ok(InputEvent::GoToStart);
+                }
+                KeyCode::Char('G') => return Ok(InputEvent::GoToEnd),
                 KeyCode::Char('j') => return Ok(InputEvent::ScrollDown),
                 KeyCode::Char('k') => return Ok(InputEvent::ScrollUp),
                 KeyCode::Char(c) => return Ok(InputEvent::Char(c)),

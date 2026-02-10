@@ -8,7 +8,8 @@ use ratatui::{
 
 use crate::app::{App, AppState};
 
-pub fn draw(frame: &mut Frame, app: &App) {
+/// Draw the browse (legacy label-based) TUI
+pub fn draw_browse(frame: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
