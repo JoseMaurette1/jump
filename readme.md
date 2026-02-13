@@ -1,6 +1,6 @@
 # Jump
 
-A minimal, Vim-inspired directory navigation tool for the terminal. Jump provides multiple navigation modes—fuzzy search, number selection, bookmarks, and a legacy browse mode—all designed for speed and muscle memory.
+A minimal, Vim-inspired directory navigation tool for the terminal. Jump provides multiple navigation modes—fuzzy search, bookmarks, and a legacy browse mode—all designed for speed and muscle memory.
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue)
 ![Rust](https://img.shields.io/badge/rust-2021-orange)
@@ -9,7 +9,6 @@ A minimal, Vim-inspired directory navigation tool for the terminal. Jump provide
 ## Features
 
 - **Fuzzy Search Mode** - Type to filter directories with real-time fuzzy matching
-- **Number Selection Mode** - Quick numeric selection (1-9) for your most-used directories
 - **Bookmark System** - Persistent shortcuts with custom keys (e.g., `w` for work)
 - **Legacy Browse Mode** - Two-character label navigation for backwards compatibility
 - **Vim Keybindings** - `j/k` to scroll, `g/G` for top/bottom, `Ctrl+U/D` to page
@@ -72,16 +71,6 @@ jump -a
 | `Enter` | Confirm selection |
 | `Esc` | Cancel |
 
-### Number Selection Mode
-
-```bash
-jump --number
-# or
-jump -n
-```
-
-Type a number (1-9) to jump directly to that directory, then press Enter.
-
 ### Bookmark Management
 
 ```bash
@@ -118,7 +107,6 @@ Options:
     -h, --help          Print help information
     -v, --version       Print version information
     -f, --fuzzy         Fuzzy search mode (default)
-    -n, --number        Number selection mode
     -b, --bookmark      Bookmark management
     -a, --all           Show hidden directories
     --shell-init        Generate shell initialization script
@@ -196,7 +184,6 @@ jump/
 │   ├── fs.rs             # Directory scanning
 │   ├── input.rs          # Input handling
 │   ├── labels.rs         # Label generation
-│   ├── number.rs         # Number mode logic
 │   ├── scoring.rs        # Frequency algorithm
 │   ├── shell.rs          # Shell integration
 │   ├── database/         # Database module
@@ -207,7 +194,7 @@ jump/
 │   └── ui/               # UI components
 │       ├── browse.rs     # Legacy browse TUI
 │       ├── fuzzy.rs      # Fuzzy search TUI
-│       └── number.rs     # Number/bookmark TUI
+│       └── number.rs     # Bookmark TUI
 └── Cargo.toml
 ```
 

@@ -4,7 +4,6 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, ValueEnum)]
 enum Mode {
     Fuzzy,
-    Number,
     Browse,
 }
 
@@ -37,13 +36,6 @@ pub enum Commands {
     #[command(name = "jump")]
     Jump {
         /// Query to match against directory names
-        query: Option<String>,
-    },
-
-    /// Interactive number-based selection
-    #[command(name = "num", alias = "n")]
-    Number {
-        /// Optional filter query
         query: Option<String>,
     },
 

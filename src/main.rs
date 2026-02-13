@@ -1,12 +1,8 @@
-mod app;
 mod config;
 mod database;
 mod fs;
 mod fuzzy;
 mod input;
-mod labels;
-mod number;
-mod scoring;
 mod shell;
 mod ui;
 
@@ -18,7 +14,6 @@ use crossterm::{
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::{env, fs::File, io, panic};
 
-use app::App;
 use config::{parse_args, AppMode, ParseResult};
 use database::Database;
 use input::InputEvent;
@@ -27,7 +22,6 @@ use ui::FuzzyState;
 fn main() -> Result<()> {
     let (result, _, bookmark_action) = parse_args();
 
-    // Handle bookmark actions that don't need TUI
     match bookmark_action {
         config::BookmarkAction::None => {}
         action => {
@@ -108,10 +102,7 @@ fn run(config: config::Config) -> Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     match config.mode {
-        AppMode::Browse => run_browse_mode(&mut terminal, &current_dir, &config)?,
-        AppMode::Fuzzy => run_fuzzy_mode(&mut terminal, &current_dir, &config)?,
-        AppMode::Number => run_number_mode(&mut terminal, &current_dir, &config)?,
-        AppMode::Bookmark => run_bookmark_mode(&mut terminal, &current_dir, &config)?,
+        AppMode::Fuzzy => run_fuzzy_mode(&mut terminal, &current_dir, config.show_hidden, config.query.as_deref())?,
     }
 
     disable_raw_mode()?;
@@ -121,131 +112,16 @@ fn run(config: config::Config) -> Result<()> {
     Ok(())
 }
 
-fn run_browse_mode(
-    terminal: &mut Terminal<CrosstermBackend<File>>,
-    start_dir: &std::path::PathBuf,
-    config: &config::Config,
-) -> Result<()> {
-    let mut app = App::new(start_dir.clone(), config.show_hidden);
-
-    while !app.is_done() {
-        terminal.draw(|f| ui::draw_browse(f, &app))?;
-
-        match input::read_key(100)? {
-            InputEvent::Char(c) => app.handle_key(c),
-            InputEvent::Escape => app.cancel(),
-            InputEvent::Backspace => app.go_up(),
-            InputEvent::Enter => app.confirm(),
-            InputEvent::ToggleHidden => app.toggle_hidden(),
-            InputEvent::ScrollUp => app.scroll_up(),
-            InputEvent::ScrollDown => app.scroll_down(),
-            InputEvent::None => {}
-            InputEvent::PageUp
-            | InputEvent::PageDown
-            | InputEvent::GoToStart
-            | InputEvent::GoToEnd
-            | InputEvent::StartSearch => {}
-        }
-    }
-
-    if let Some(path) = app.selected_path() {
-        println!("{}", path.display());
-    }
-
-    Ok(())
-}
-
-fn run_number_mode(
-    terminal: &mut Terminal<CrosstermBackend<File>>,
-    start_dir: &std::path::PathBuf,
-    config: &config::Config,
-) -> Result<()> {
-    let entries = fs::scan_directories(start_dir, config.show_hidden)?;
-    let mut number_mode = number::NumberMode::new(entries.len());
-
-    loop {
-        terminal.draw(|f| ui::draw_number(f, &entries, &number_mode))?;
-
-        match input::read_key(100)? {
-            InputEvent::Escape => return Ok(()),
-            InputEvent::Enter => {
-                if let Some(idx) = number_mode.confirm() {
-                    if let Some(entry) = entries.get(idx) {
-                        println!("{}", entry.path.display());
-                        return Ok(());
-                    }
-                }
-                number_mode.reset();
-            }
-            InputEvent::Char(c) => {
-                if let Some(digit) = c.to_digit(10) {
-                    number_mode.add_digit(digit as u8);
-                }
-            }
-            InputEvent::Backspace => number_mode.backspace(),
-            InputEvent::None => {}
-            _ => {}
-        }
-    }
-}
-
-fn run_bookmark_mode(
-    terminal: &mut Terminal<CrosstermBackend<File>>,
-    start_dir: &std::path::PathBuf,
-    config: &config::Config,
-) -> Result<()> {
-    let db = Database::new()?;
-    let bookmarks = db.get_all_bookmarks()?;
-    let mut selected_idx = 0;
-
-    loop {
-        terminal.draw(|f| ui::draw_bookmarks(f, &bookmarks, selected_idx))?;
-
-        match input::read_key(100)? {
-            InputEvent::Escape => return Ok(()),
-            InputEvent::Enter => {
-                if let Some(entry) = bookmarks.get(selected_idx) {
-                    println!("{}", entry.path);
-                    return Ok(());
-                }
-            }
-            InputEvent::Char(c) => {
-                if let Some(idx) = bookmarks
-                    .iter()
-                    .position(|b| b.bookmark_key.as_deref() == Some(&c.to_string()))
-                {
-                    println!("{}", bookmarks[idx].path);
-                    return Ok(());
-                }
-                match c {
-                    'j' | 'J' if selected_idx < bookmarks.len().saturating_sub(1) => {
-                        selected_idx += 1;
-                    }
-                    'k' | 'K' if selected_idx > 0 => {
-                        selected_idx -= 1;
-                    }
-                    _ => {}
-                }
-            }
-            InputEvent::ScrollUp if selected_idx > 0 => selected_idx -= 1,
-            InputEvent::ScrollDown if selected_idx < bookmarks.len().saturating_sub(1) => {
-                selected_idx += 1;
-            }
-            _ => {}
-        }
-    }
-}
-
 fn run_fuzzy_mode(
     terminal: &mut Terminal<CrosstermBackend<File>>,
     start_dir: &std::path::PathBuf,
-    config: &config::Config,
+    show_hidden: bool,
+    query: Option<&str>,
 ) -> Result<()> {
-    let entries = fs::scan_directories(start_dir, config.show_hidden)?;
-    let mut fuzzy_state = FuzzyState::with_entries(entries);
+    let mut fuzzy_state = FuzzyState::new_in_dir(start_dir, show_hidden);
 
-    if let Some(ref query) = config.query {
-        fuzzy_state.set_query(query);
+    if let Some(q) = query {
+        fuzzy_state.set_query(q);
     }
 
     let mut searching = false;
@@ -267,6 +143,20 @@ fn run_fuzzy_mode(
                 if let Some(item) = fuzzy_state.selected_item() {
                     println!("{}", item.path());
                     return Ok(());
+                }
+            }
+            InputEvent::NavigateIn => {
+                if searching {
+                    fuzzy_state.add_char('l');
+                } else {
+                    fuzzy_state.navigate_into();
+                }
+            }
+            InputEvent::NavigateOut => {
+                if searching {
+                    fuzzy_state.add_char('h');
+                } else {
+                    fuzzy_state.navigate_back();
                 }
             }
             InputEvent::Char(c) => {

@@ -15,6 +15,8 @@ pub enum InputEvent {
     GoToStart,
     GoToEnd,
     StartSearch,
+    NavigateIn,
+    NavigateOut,
     None,
 }
 
@@ -56,6 +58,8 @@ pub fn read_key(timeout_ms: u64) -> Result<InputEvent> {
                 KeyCode::Char('G') => return Ok(InputEvent::GoToEnd),
                 KeyCode::Char('j') => return Ok(InputEvent::ScrollDown),
                 KeyCode::Char('k') => return Ok(InputEvent::ScrollUp),
+                KeyCode::Char('l') => return Ok(InputEvent::NavigateIn),
+                KeyCode::Char('h') => return Ok(InputEvent::NavigateOut),
                 KeyCode::Char(c) => return Ok(InputEvent::Char(c)),
                 _ => {}
             }

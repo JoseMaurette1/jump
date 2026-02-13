@@ -93,18 +93,7 @@ Usage: j <query>        # Interactive fuzzy search
 - `Enter` to confirm, `Esc` to cancel
 - Vim bindings: `j/k` to move selection, `Ctrl+U/D` for page up/down
 
-### Mode 2: Number Jump (Quick)
-```
-Usage: jump --number     # Show directory list with numbers
-       3<Enter>         # Jump to #3 directory
-```
-
-- Persistent ranking (1 = most frequently used)
-- Numbers stay fixed across sessions
-- Works best for 10-20 most-visited directories
-- Numbers 1-9 are single keystroke
-
-### Mode 3: Bookmark System
+### Mode 2: Bookmark System
 ```
 Usage: jump --bookmark add work     # Add "work" as bookmark
        jump --bookmark work         # Jump directly
@@ -154,7 +143,6 @@ Where:
 | `j` / `k` | Move selection down/up |
 | `Ctrl+D` / `Ctrl+U` | Page down/up |
 | `Ctrl+F` | Fuzzy find mode |
-| `Ctrl+N` | Number mode |
 | `Ctrl+B` | Bookmark mode |
 | `g` / `G` | Go to top/bottom |
 | `/` | Start search |
@@ -205,7 +193,6 @@ OPTIONS:
     -h, --help          Print help information
     -v, --version       Print version information
     -f, --fuzzy         Fuzzy search mode (default)
-    -n, --number        Number selection mode
     -b, --bookmark      Bookmark management
     -a, --all           Show hidden directories
     --track             Track current directory (internal)
@@ -230,8 +217,7 @@ OPTIONS:
 - [x] Implement real-time filtering by score
 - [x] Build fuzzy TUI with search input
 
-### Phase 3: Numbers & Bookmarks (Week 3) ✅ COMPLETE
-- [x] Implement number selection mode
+### Phase 3: Bookmarks (Week 3) ✅ COMPLETE
 - [x] Add bookmark CRUD operations
 - [x] Custom key bindings for bookmarks
 
@@ -303,7 +289,7 @@ jump/
 │   │   ├── mod.rs
 │   │   ├── app.rs        # App state
 │   │   ├── fuzzy.rs      # Fuzzy search widget
-│   │   ├── number.rs     # Number list widget
+│   │   ├── number.rs     # Bookmark widget
 │   │   ├── browse.rs     # Legacy browse widget
 │   │   └── components/   # Reusable UI components
 │   ├── fuzzy/

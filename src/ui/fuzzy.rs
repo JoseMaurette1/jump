@@ -1,12 +1,14 @@
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    text::{Line, Span, Text},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Widget},
+    text::{Line, Span},
+    widgets::{Block, Borders, List, ListItem, Paragraph},
     Frame,
 };
 
-use crate::fs::DirEntry;
+use std::path::{Path, PathBuf};
+
+use crate::fs::{self, DirEntry};
 use crate::fuzzy::FuzzyMatchEngine;
 
 /// Draw the fuzzy search TUI
@@ -28,7 +30,7 @@ pub fn draw_fuzzy(frame: &mut Frame, state: &FuzzyState) {
     let search_block = Paragraph::new(search_display).style(search_style).block(
         Block::default()
             .borders(Borders::ALL)
-            .title(" /=search  Esc=cancel  Enter=confirm  j/k=scroll  Ctrl+U/D=page "),
+            .title(format!(" {} ", state.current_dir.display())),
     );
 
     frame.render_widget(search_block, chunks[0]);
@@ -106,40 +108,43 @@ impl FuzzyItem {
     pub fn path(&self) -> String {
         self.entry.path.to_string_lossy().into_owned()
     }
-
-    pub fn name(&self) -> &str {
-        &self.entry.name
-    }
 }
 
 /// State for the fuzzy search TUI
 #[derive(Debug, Clone)]
 pub struct FuzzyState {
     pub search_query: String,
+    pub all_items: Vec<FuzzyItem>,
     pub items: Vec<FuzzyItem>,
     pub selected_index: usize,
     pub scroll_offset: usize,
     pub matcher: FuzzyMatchEngine,
-}
-
-impl Default for FuzzyState {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub current_dir: PathBuf,
+    pub show_hidden: bool,
 }
 
 impl FuzzyState {
-    pub fn new() -> Self {
+    /// Create a new FuzzyState by scanning the given directory
+    pub fn new_in_dir(dir: &Path, show_hidden: bool) -> Self {
+        let entries = fs::scan_directories(dir, show_hidden).unwrap_or_default();
+        let items: Vec<FuzzyItem> = entries
+            .into_iter()
+            .map(|e| FuzzyItem::new(e, 0, Vec::new()))
+            .collect();
+
         Self {
             search_query: String::new(),
-            items: Vec::new(),
+            all_items: items.clone(),
+            items,
             selected_index: 0,
             scroll_offset: 0,
             matcher: FuzzyMatchEngine::new(),
+            current_dir: dir.to_path_buf(),
+            show_hidden,
         }
     }
 
-    /// Initialize with a list of entries
+    /// Initialize with a list of entries (for tests)
     pub fn with_entries(entries: Vec<DirEntry>) -> Self {
         let items: Vec<FuzzyItem> = entries
             .into_iter()
@@ -148,11 +153,46 @@ impl FuzzyState {
 
         Self {
             search_query: String::new(),
+            all_items: items.clone(),
             items,
             selected_index: 0,
             scroll_offset: 0,
             matcher: FuzzyMatchEngine::new(),
+            current_dir: PathBuf::from("/"),
+            show_hidden: false,
         }
+    }
+
+    /// Navigate into the currently selected directory
+    pub fn navigate_into(&mut self) {
+        if let Some(item) = self.selected_item() {
+            let target = item.entry.path.clone();
+            if fs::is_accessible(&target) {
+                self.load_dir(&target);
+            }
+        }
+    }
+
+    /// Navigate to the parent directory
+    pub fn navigate_back(&mut self) {
+        if let Some(parent) = fs::get_safe_parent(&self.current_dir) {
+            self.load_dir(&parent);
+        }
+    }
+
+    fn load_dir(&mut self, dir: &Path) {
+        let entries = fs::scan_directories(dir, self.show_hidden).unwrap_or_default();
+        let items: Vec<FuzzyItem> = entries
+            .into_iter()
+            .map(|e| FuzzyItem::new(e, 0, Vec::new()))
+            .collect();
+
+        self.current_dir = dir.to_path_buf();
+        self.all_items = items.clone();
+        self.items = items;
+        self.search_query.clear();
+        self.selected_index = 0;
+        self.scroll_offset = 0;
     }
 
     /// Update search query and re-filter results
@@ -181,37 +221,37 @@ impl FuzzyState {
 
     fn filter_results(&mut self) {
         if self.search_query.is_empty() {
+            self.items = self.all_items.clone();
+            self.selected_index = 0;
+            self.scroll_offset = 0;
             return;
         }
 
         let pattern = &self.search_query;
         let matcher = &self.matcher;
 
-        self.items
-            .retain_mut(|item| match matcher.get_score(pattern, &item.entry.name) {
-                Some(score) => {
-                    item.match_score = score;
-                    item.matched_indices = matcher
+        let mut filtered: Vec<FuzzyItem> = self
+            .all_items
+            .iter()
+            .filter_map(|item| {
+                matcher.get_score(pattern, &item.entry.name).map(|score| {
+                    let indices = matcher
                         .get_indices(pattern, &item.entry.name)
                         .unwrap_or_default();
-                    true
-                }
-                None => false,
-            });
+                    FuzzyItem::new(item.entry.clone(), score, indices)
+                })
+            })
+            .collect();
 
-        self.items.sort_by(|a, b| {
+        filtered.sort_by(|a, b| {
             b.match_score
                 .cmp(&a.match_score)
                 .then_with(|| a.entry.name.cmp(&b.entry.name))
         });
 
+        self.items = filtered;
         self.selected_index = 0;
         self.scroll_offset = 0;
-    }
-
-    /// Get list of visible items (respecting scroll offset)
-    pub fn visible_items(&self) -> &[FuzzyItem] {
-        &self.items[self.scroll_offset..]
     }
 
     /// Get currently selected item
@@ -289,137 +329,10 @@ impl FuzzyState {
     pub fn result_count(&self) -> usize {
         self.items.len()
     }
-}
 
-/// Render the fuzzy search widget
-pub fn render_fuzzy(frame: &mut Frame, area: Rect, state: &FuzzyState) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .margin(0)
-        .constraints([
-            Constraint::Length(3), // Search bar
-            Constraint::Min(0),    // Results list
-        ])
-        .split(area);
-
-    // Render search bar
-    render_search_bar(frame, chunks[0], state);
-
-    // Render results list
-    render_results_list(frame, chunks[1], state);
-}
-
-/// Render the search input bar
-fn render_search_bar(frame: &mut Frame, area: Rect, state: &FuzzyState) {
-    let search_text = format!(" Search: {} ", state.search_query);
-
-    let input_style = if state.search_query.is_empty() {
-        Style::default().fg(Color::DarkGray)
-    } else {
-        Style::default().fg(Color::Yellow)
-    };
-
-    let cursor_style = Style::default()
-        .fg(Color::White)
-        .add_modifier(Modifier::REVERSED);
-
-    let paragraph = Paragraph::new(search_text).style(input_style).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(" /=search  Esc=cancel  Enter=confirm  j/k=scroll  Ctrl+U/D=page "),
-    );
-
-    frame.render_widget(paragraph, area);
-}
-
-/// Render the results list with highlighting
-fn render_results_list(frame: &mut Frame, area: Rect, state: &FuzzyState) {
-    let result_count = state.result_count();
-    let selected = state.selected_index;
-
-    let title = if state.search_query.is_empty() {
-        format!(" all directories ({}) ", result_count)
-    } else {
-        format!(" results ({}) ", result_count)
-    };
-
-    let items: Vec<ListItem> = if state.items.is_empty() {
-        vec![ListItem::new(Line::from(vec![Span::styled(
-            "  (no matches)",
-            Style::default().fg(Color::DarkGray),
-        )]))]
-    } else {
-        state
-            .items
-            .iter()
-            .skip(state.scroll_offset)
-            .enumerate()
-            .map(|(idx, item)| {
-                let global_idx = state.scroll_offset + idx;
-                let is_selected = global_idx == selected;
-
-                // Create highlighted name with matched characters
-                let name_spans = highlight_match(&item.entry.name, &item.matched_indices);
-
-                let line = Line::from(vec![
-                    Span::raw("  "),
-                    Span::styled(&item.entry.name, Style::default().fg(Color::White)),
-                    Span::styled("/", Style::default().fg(Color::DarkGray)),
-                ]);
-
-                let style = if is_selected {
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD)
-                } else if item.match_score == i64::MIN {
-                    Style::default().fg(Color::DarkGray)
-                } else {
-                    Style::default().fg(Color::White)
-                };
-
-                ListItem::new(line).style(style)
-            })
-            .collect()
-    };
-
-    let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title(title))
-        .highlight_style(
-            Style::default()
-                .add_modifier(Modifier::REVERSED)
-                .bg(Color::Blue),
-        );
-
-    frame.render_widget(list, area);
-}
-
-/// Highlight matched characters in the name
-fn highlight_match<'a>(name: &'a str, indices: &'a [usize]) -> Vec<Span<'a>> {
-    let mut spans = Vec::new();
-    let mut last_end = 0;
-
-    for &idx in indices {
-        if idx > last_end {
-            // Add unmatched portion
-            spans.push(Span::raw(&name[last_end..idx]));
-        }
-        // Add matched character with highlight
-        let c = name.chars().nth(idx).unwrap_or(' ');
-        spans.push(Span::styled(
-            c.to_string(),
-            Style::default()
-                .fg(Color::Yellow)
-                .add_modifier(Modifier::BOLD),
-        ));
-        last_end = idx + 1;
+    pub fn is_searching(&self) -> bool {
+        !self.search_query.is_empty()
     }
-
-    // Add remaining portion
-    if last_end < name.len() {
-        spans.push(Span::raw(&name[last_end..]));
-    }
-
-    spans
 }
 
 #[cfg(test)]
@@ -436,7 +349,7 @@ mod tests {
 
     #[test]
     fn test_fuzzy_state_new() {
-        let state = FuzzyState::new();
+        let state = FuzzyState::with_entries(vec![]);
         assert!(state.search_query.is_empty());
         assert!(state.items.is_empty());
         assert_eq!(state.selected_index, 0);
@@ -482,14 +395,23 @@ mod tests {
     }
 
     #[test]
-    fn test_fuzzy_state_clear_query() {
-        let entries = vec![test_entry("apple")];
+    fn test_fuzzy_state_clear_query_restores_all_items() {
+        let entries = vec![
+            test_entry("apple"),
+            test_entry("apricot"),
+            test_entry("banana"),
+        ];
         let mut state = FuzzyState::with_entries(entries);
 
+        // Filter down to "ap" matches
         state.add_char('a');
         state.add_char('p');
+        assert_eq!(state.result_count(), 2);
+
+        // Clearing query should restore all 3 items
         state.clear_query();
         assert!(state.search_query.is_empty());
+        assert_eq!(state.result_count(), 3);
     }
 
     #[test]
@@ -549,24 +471,6 @@ mod tests {
         let mut state = FuzzyState::with_entries(entries);
 
         state.move_down();
-        assert_eq!(state.selected_item().unwrap().name(), "banana");
-    }
-
-    #[test]
-    fn test_fuzzy_state_has_results() {
-        let entries = vec![test_entry("apple")];
-        let mut state = FuzzyState::with_entries(entries);
-
-        assert!(state.has_results());
-
-        state.set_query("xyz");
-        assert!(!state.has_results());
-    }
-
-    #[test]
-    fn test_highlight_match() {
-        let spans = highlight_match("apple", &[0, 1, 2]);
-        // All characters matched, should have highlights
-        assert!(!spans.is_empty());
+        assert_eq!(state.selected_item().unwrap().entry.name, "banana");
     }
 }

@@ -9,7 +9,6 @@ const NAME: &str = env!("CARGO_PKG_NAME");
 #[derive(Debug, Clone, Default)]
 pub struct Config {
     pub show_hidden: bool,
-    pub fuzzy_mode: bool,
     pub query: Option<String>,
     pub mode: AppMode,
 }
@@ -17,10 +16,7 @@ pub struct Config {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum AppMode {
     #[default]
-    Browse, // Legacy TUI mode with labels
-    Fuzzy,    // Fuzzy search mode
-    Number,   // Number selection mode
-    Bookmark, // Bookmark mode
+    Fuzzy,
 }
 
 pub enum ParseResult {
@@ -57,7 +53,6 @@ pub fn parse_args() -> (ParseResult, ShellAction, BookmarkAction) {
     let mut bookmark_action = BookmarkAction::None;
 
     let mut show_hidden = false;
-    let mut fuzzy_mode = false;
     let mut mode = AppMode::default();
     let mut query: Option<String> = None;
 
@@ -78,11 +73,7 @@ pub fn parse_args() -> (ParseResult, ShellAction, BookmarkAction) {
                 show_hidden = true;
             }
             "-f" | "--fuzzy" => {
-                fuzzy_mode = true;
                 mode = AppMode::Fuzzy;
-            }
-            "-n" | "--number" => {
-                mode = AppMode::Number;
             }
             "-b" | "--bookmark" => {
                 // Handle bookmark subcommand
@@ -173,13 +164,11 @@ pub fn parse_args() -> (ParseResult, ShellAction, BookmarkAction) {
     // Default to fuzzy mode if not specified but query is provided
     if query.is_some() && mode == AppMode::default() {
         mode = AppMode::Fuzzy;
-        fuzzy_mode = true;
     }
 
     (
         ParseResult::Config(Config {
             show_hidden,
-            fuzzy_mode,
             query,
             mode,
         }),
@@ -196,9 +185,8 @@ USAGE:
     {} [OPTIONS] [QUERY]
 
 MODES:
-    (default)        Interactive TUI with labels
+    (default)        Interactive fuzzy search
     -f, --fuzzy     Enable fuzzy search mode
-    -n, --number    Number selection mode (persistent ranking)
     -b, --bookmark  Bookmark management
 
 OPTIONS:
@@ -208,13 +196,7 @@ OPTIONS:
     --shell-init [SHELL] Print shell initialization script (bash/zsh/fish/auto)
     --completions SHELL Print shell completion script (bash/zsh/fish)
 
-KEYBINDINGS (Browse Mode):
-    A-Z             Select label
-    Ctrl+H          Toggle hidden files
-    Backspace       Reset selection
-    Esc / Ctrl+C    Cancel
-
-KEYBINDINGS (Fuzzy Mode):
+KEYBINDINGS:
     /               Start search
     j / k           Move selection down/up
     Ctrl+U/D        Page up/down
@@ -222,17 +204,6 @@ KEYBINDINGS (Fuzzy Mode):
     Enter           Confirm selection
     Backspace       Delete character
     Ctrl+H          Toggle hidden files
-    Esc / Ctrl+C    Cancel
-
-KEYBINDINGS (Number Mode):
-    0-9             Enter number to jump
-    Enter           Confirm selection
-    Esc / Ctrl+C    Cancel
-    j / k           Scroll down/up
-
-KEYBINDINGS (Bookmark Mode):
-    1-9             Quick jump to bookmark
-    j / k           Scroll bookmarks
     Esc / Ctrl+C    Cancel
 
 BOOKMARK COMMANDS:

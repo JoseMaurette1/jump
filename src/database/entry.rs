@@ -1,10 +1,8 @@
-use crate::scoring::Score;
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct DirEntry {
     pub path: String,
     pub name: String,
-    pub score: Score,
+    pub score: f64,
     pub access_count: u32,
     pub last_accessed: i64,
     pub is_bookmark: bool,
@@ -16,31 +14,11 @@ impl DirEntry {
         Self {
             path,
             name,
-            score: Score::default(),
+            score: 0.0,
             access_count: 0,
             last_accessed: 0,
             is_bookmark: false,
             bookmark_key: None,
         }
-    }
-
-    pub fn with_bookmark(path: String, name: String, key: String) -> Self {
-        Self {
-            path,
-            name,
-            score: Score::default(),
-            access_count: 0,
-            last_accessed: 0,
-            is_bookmark: true,
-            bookmark_key: Some(key),
-        }
-    }
-
-    pub fn increment_access(&mut self) {
-        self.access_count += 1;
-        self.last_accessed = chrono::Utc::now().timestamp();
-        self.score = self
-            .score
-            .recalculate(self.access_count, self.last_accessed);
     }
 }

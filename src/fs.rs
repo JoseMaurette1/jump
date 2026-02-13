@@ -2,8 +2,6 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
-use crate::labels::MAX_LABELS;
-
 #[derive(Debug, Clone)]
 pub struct DirEntry {
     pub path: PathBuf,
@@ -73,7 +71,6 @@ pub fn scan_directories(dir: &Path, show_hidden: bool) -> Result<Vec<DirEntry>, 
     }
 
     entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
-    entries.truncate(MAX_LABELS);
 
     Ok(entries)
 }
