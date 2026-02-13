@@ -27,14 +27,6 @@ impl Shell {
         }
     }
 
-    /// Get the extension for completion scripts
-    pub fn extension(self) -> &'static str {
-        match self {
-            Shell::Bash => "bash",
-            Shell::Zsh => "zsh",
-            Shell::Fish => "fish",
-        }
-    }
 }
 
 /// Generate bash shell integration script
@@ -186,14 +178,9 @@ _{name}() {{
         "-v[Show version]"
         "-a[Show hidden directories]"
         "--all[Show hidden directories]"
-        "--fuzzy[Fuzzy search mode]"
-        "--number[Number selection mode]"
         "--bookmark[Bookmark management]"
         "--shell-init[Print shell initialization script]"
         "--completions[Print shell completion script]"
-        "--track[Track current directory]"
-        "--clean[Clean old entries]"
-        "--stats[Show usage statistics]"
     )
     _arguments -s $args
 }}
@@ -209,11 +196,8 @@ pub fn generate_fish_completion(name: &str) -> String {
     format!(
         r#"# fish completion for {name}
 
-complete -c {name} -f -a "(jump --help 2>/dev/null | grep -oP '(--\S+)' | tr '\n' ' ')"
 complete -c {name} -f -a "(
     echo --all
-    echo --fuzzy
-    echo --number
     echo --bookmark
     echo --shell-init
     echo --completions

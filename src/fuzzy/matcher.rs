@@ -24,12 +24,6 @@ impl FuzzyMatchEngine {
     pub fn get_score(&self, pattern: &str, text: &str) -> Option<i64> {
         (*self.matcher).fuzzy_match(text, pattern)
     }
-
-    pub fn get_indices(&self, pattern: &str, text: &str) -> Option<Vec<usize>> {
-        (*self.matcher)
-            .fuzzy_indices(text, pattern)
-            .map(|(_, indices)| indices)
-    }
 }
 
 #[cfg(test)]
@@ -43,13 +37,5 @@ mod tests {
 
         assert!(score.is_some());
         assert!(score.unwrap() > 0);
-    }
-
-    #[test]
-    fn test_get_indices() {
-        let matcher = FuzzyMatchEngine::new();
-        let indices = matcher.get_indices("abc", "axbycz");
-
-        assert_eq!(indices, Some(vec![0, 2, 4]));
     }
 }

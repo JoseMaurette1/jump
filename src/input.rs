@@ -7,7 +7,6 @@ pub enum InputEvent {
     Escape,
     Backspace,
     Enter,
-    ToggleHidden,
     ScrollUp,
     ScrollDown,
     PageUp,
@@ -28,10 +27,6 @@ pub fn read_key(timeout_ms: u64) -> Result<InputEvent> {
         {
             if modifiers.contains(KeyModifiers::CONTROL) && code == KeyCode::Char('c') {
                 return Ok(InputEvent::Escape);
-            }
-
-            if modifiers.contains(KeyModifiers::CONTROL) && code == KeyCode::Char('h') {
-                return Ok(InputEvent::ToggleHidden);
             }
 
             // Ctrl+D for page down

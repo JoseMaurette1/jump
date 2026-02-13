@@ -14,13 +14,13 @@ use crossterm::{
 use ratatui::{backend::CrosstermBackend, Terminal};
 use std::{env, fs::File, io, panic};
 
-use config::{parse_args, AppMode, ParseResult};
+use config::{parse_args, ParseResult};
 use database::Database;
 use input::InputEvent;
 use ui::FuzzyState;
 
 fn main() -> Result<()> {
-    let (result, _, bookmark_action) = parse_args();
+    let (result, bookmark_action) = parse_args();
 
     match bookmark_action {
         config::BookmarkAction::None => {}
@@ -101,9 +101,7 @@ fn run(config: config::Config) -> Result<()> {
     let backend = CrosstermBackend::new(tty_output);
     let mut terminal = Terminal::new(backend)?;
 
-    match config.mode {
-        AppMode::Fuzzy => run_fuzzy_mode(&mut terminal, &current_dir, config.show_hidden, config.query.as_deref())?,
-    }
+    run_fuzzy_mode(&mut terminal, &current_dir, config.show_hidden, config.query.as_deref())?;
 
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
@@ -180,7 +178,6 @@ fn run_fuzzy_mode(
             InputEvent::PageDown => fuzzy_state.page_down(),
             InputEvent::GoToStart => fuzzy_state.go_to_start(),
             InputEvent::GoToEnd => fuzzy_state.go_to_end(),
-            InputEvent::ToggleHidden => {}
             InputEvent::None => {}
         }
     }

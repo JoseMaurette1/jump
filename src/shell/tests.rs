@@ -1,14 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::shell::{generate_bash_init, generate_fish_init, generate_zsh_init, Shell};
-
-    #[test]
-    fn test_shell_detection() {
-        // Test that Shell enum variants work
-        assert_eq!(Shell::Bash.extension(), "bash");
-        assert_eq!(Shell::Zsh.extension(), "zsh");
-        assert_eq!(Shell::Fish.extension(), "fish");
-    }
+    use crate::shell::{generate_bash_init, generate_fish_init, generate_zsh_init};
 
     #[test]
     fn test_bash_init_contains_function() {
@@ -97,9 +89,7 @@ mod tests {
 
 #[cfg(test)]
 mod completion_tests {
-    use crate::shell::{
-        generate_bash_completion, generate_fish_completion, generate_zsh_completion, Shell,
-    };
+    use crate::shell::{generate_bash_completion, generate_fish_completion, generate_zsh_completion};
 
     #[test]
     fn test_bash_completion_contains_complete() {

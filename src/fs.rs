@@ -1,4 +1,3 @@
-use anyhow::Result;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -14,26 +13,21 @@ pub enum ScanError {
     NotFound(PathBuf),
     #[error("Not a directory: {0}")]
     NotDirectory(PathBuf),
-    #[error("Permission denied: {0}")]
-    PermissionDenied(PathBuf),
     #[error("I/O error: {0}")]
     IoError(#[from] std::io::Error),
 }
 
 pub fn scan_directories(dir: &Path, show_hidden: bool) -> Result<Vec<DirEntry>, ScanError> {
-    // Check if directory exists
     if !dir.exists() {
         return Err(ScanError::NotFound(dir.to_path_buf()));
     }
 
-    // Check if path is a directory
     if !dir.is_dir() {
         return Err(ScanError::NotDirectory(dir.to_path_buf()));
     }
 
     let mut entries: Vec<DirEntry> = Vec::new();
 
-    // Use WalkDir with error handling
     for entry in WalkDir::new(dir)
         .min_depth(1)
         .max_depth(1)
@@ -42,12 +36,10 @@ pub fn scan_directories(dir: &Path, show_hidden: bool) -> Result<Vec<DirEntry>, 
     {
         match entry {
             Ok(e) => {
-                // Only process directories
                 if !e.file_type().is_dir() {
                     continue;
                 }
 
-                // Check hidden filter
                 if !show_hidden {
                     if let Some(name) = e.file_name().to_str() {
                         if name.starts_with('.') {
@@ -62,7 +54,6 @@ pub fn scan_directories(dir: &Path, show_hidden: bool) -> Result<Vec<DirEntry>, 
                 });
             }
             Err(e) => {
-                // Log permission errors but continue
                 if e.io_error().is_some() {
                     continue;
                 }
@@ -118,7 +109,6 @@ mod tests {
 
     #[test]
     fn test_scan_not_directory() {
-        // Use a file instead of a directory
         let temp_file = std::env::temp_dir().join("jump_test_file");
         std::fs::write(&temp_file, "test").unwrap();
         let result = scan_directories(&temp_file, false);

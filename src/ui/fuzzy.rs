@@ -93,15 +93,13 @@ pub fn draw_fuzzy(frame: &mut Frame, state: &FuzzyState) {
 pub struct FuzzyItem {
     pub entry: DirEntry,
     pub match_score: i64,
-    pub matched_indices: Vec<usize>,
 }
 
 impl FuzzyItem {
-    pub fn new(entry: DirEntry, match_score: i64, matched_indices: Vec<usize>) -> Self {
+    pub fn new(entry: DirEntry, match_score: i64) -> Self {
         Self {
             entry,
             match_score,
-            matched_indices,
         }
     }
 
@@ -129,7 +127,7 @@ impl FuzzyState {
         let entries = fs::scan_directories(dir, show_hidden).unwrap_or_default();
         let items: Vec<FuzzyItem> = entries
             .into_iter()
-            .map(|e| FuzzyItem::new(e, 0, Vec::new()))
+            .map(|e| FuzzyItem::new(e, 0))
             .collect();
 
         Self {
@@ -145,10 +143,11 @@ impl FuzzyState {
     }
 
     /// Initialize with a list of entries (for tests)
+    #[cfg(test)]
     pub fn with_entries(entries: Vec<DirEntry>) -> Self {
         let items: Vec<FuzzyItem> = entries
             .into_iter()
-            .map(|e| FuzzyItem::new(e, 0, Vec::new()))
+            .map(|e| FuzzyItem::new(e, 0))
             .collect();
 
         Self {
@@ -184,7 +183,7 @@ impl FuzzyState {
         let entries = fs::scan_directories(dir, self.show_hidden).unwrap_or_default();
         let items: Vec<FuzzyItem> = entries
             .into_iter()
-            .map(|e| FuzzyItem::new(e, 0, Vec::new()))
+            .map(|e| FuzzyItem::new(e, 0))
             .collect();
 
         self.current_dir = dir.to_path_buf();
@@ -235,10 +234,7 @@ impl FuzzyState {
             .iter()
             .filter_map(|item| {
                 matcher.get_score(pattern, &item.entry.name).map(|score| {
-                    let indices = matcher
-                        .get_indices(pattern, &item.entry.name)
-                        .unwrap_or_default();
-                    FuzzyItem::new(item.entry.clone(), score, indices)
+                    FuzzyItem::new(item.entry.clone(), score)
                 })
             })
             .collect();
@@ -320,18 +316,9 @@ impl FuzzyState {
         }
     }
 
-    /// Check if we have results
-    pub fn has_results(&self) -> bool {
-        !self.items.is_empty()
-    }
-
     /// Get number of results
     pub fn result_count(&self) -> usize {
         self.items.len()
-    }
-
-    pub fn is_searching(&self) -> bool {
-        !self.search_query.is_empty()
     }
 }
 

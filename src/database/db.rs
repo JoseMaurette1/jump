@@ -8,14 +8,10 @@ CREATE TABLE IF NOT EXISTS entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     path TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
-    score REAL NOT NULL DEFAULT 0.0,
-    access_count INTEGER NOT NULL DEFAULT 0,
-    last_accessed INTEGER NOT NULL DEFAULT 0,
     is_bookmark INTEGER NOT NULL DEFAULT 0,
     bookmark_key TEXT
 );
 
-CREATE INDEX IF NOT EXISTS idx_score ON entries(score DESC);
 CREATE INDEX IF NOT EXISTS idx_path ON entries(path);
 CREATE INDEX IF NOT EXISTS idx_bookmark_key ON entries(bookmark_key) WHERE bookmark_key IS NOT NULL;
 "#;
@@ -44,7 +40,7 @@ impl Database {
         use rusqlite::OptionalExtension;
 
         let mut stmt = self.conn.prepare(
-            "SELECT path, name, score, access_count, last_accessed, is_bookmark, bookmark_key
+            "SELECT path, name, is_bookmark, bookmark_key
              FROM entries WHERE bookmark_key = ?1",
         )?;
 
@@ -53,11 +49,8 @@ impl Database {
                 Ok(DirEntry {
                     path: row.get(0)?,
                     name: row.get(1)?,
-                    score: row.get(2)?,
-                    access_count: row.get(3)?,
-                    last_accessed: row.get(4)?,
-                    is_bookmark: row.get(5)?,
-                    bookmark_key: row.get(6)?,
+                    is_bookmark: row.get(2)?,
+                    bookmark_key: row.get(3)?,
                 })
             })
             .optional()?;
@@ -79,8 +72,8 @@ impl Database {
             )?;
         } else {
             self.conn.execute(
-                "INSERT INTO entries (path, name, score, access_count, last_accessed, is_bookmark, bookmark_key)
-                 VALUES (?1, ?2, 0.0, 0, 0, 1, ?3)",
+                "INSERT INTO entries (path, name, is_bookmark, bookmark_key)
+                 VALUES (?1, ?2, 1, ?3)",
                 (path, name, key),
             )?;
         }
@@ -97,7 +90,7 @@ impl Database {
 
     pub fn get_all_bookmarks(&self) -> Result<Vec<DirEntry>> {
         let mut stmt = self.conn.prepare(
-            "SELECT path, name, score, access_count, last_accessed, is_bookmark, bookmark_key
+            "SELECT path, name, is_bookmark, bookmark_key
              FROM entries WHERE is_bookmark = 1 ORDER BY bookmark_key",
         )?;
 
@@ -106,11 +99,8 @@ impl Database {
                 Ok(DirEntry {
                     path: row.get(0)?,
                     name: row.get(1)?,
-                    score: row.get(2)?,
-                    access_count: row.get(3)?,
-                    last_accessed: row.get(4)?,
-                    is_bookmark: row.get(5)?,
-                    bookmark_key: row.get(6)?,
+                    is_bookmark: row.get(2)?,
+                    bookmark_key: row.get(3)?,
                 })
             })?
             .filter_map(|e| e.ok())

@@ -10,24 +10,11 @@ const NAME: &str = env!("CARGO_PKG_NAME");
 pub struct Config {
     pub show_hidden: bool,
     pub query: Option<String>,
-    pub mode: AppMode,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum AppMode {
-    #[default]
-    Fuzzy,
 }
 
 pub enum ParseResult {
     Config(Config),
     Exit,
-}
-
-pub enum ShellAction {
-    None,
-    ShellInit(Shell),
-    Completions(Shell),
 }
 
 #[derive(Debug)]
@@ -47,13 +34,11 @@ pub enum BookmarkAction {
     None,
 }
 
-pub fn parse_args() -> (ParseResult, ShellAction, BookmarkAction) {
+pub fn parse_args() -> (ParseResult, BookmarkAction) {
     let args: Vec<String> = env::args().skip(1).collect();
-    let mut shell_action = ShellAction::None;
     let mut bookmark_action = BookmarkAction::None;
 
     let mut show_hidden = false;
-    let mut mode = AppMode::default();
     let mut query: Option<String> = None;
 
     let mut iter = args.iter().peekable();
@@ -62,7 +47,7 @@ pub fn parse_args() -> (ParseResult, ShellAction, BookmarkAction) {
             "-h" | "--help" => {
                 print_help();
                 std::io::stdout().flush().ok();
-                return (ParseResult::Exit, ShellAction::None, BookmarkAction::None);
+                return (ParseResult::Exit, BookmarkAction::None);
             }
             "-v" | "--version" => {
                 println!("{} {}", NAME, VERSION);
@@ -71,9 +56,6 @@ pub fn parse_args() -> (ParseResult, ShellAction, BookmarkAction) {
             }
             "-a" | "--all" => {
                 show_hidden = true;
-            }
-            "-f" | "--fuzzy" => {
-                mode = AppMode::Fuzzy;
             }
             "-b" | "--bookmark" => {
                 // Handle bookmark subcommand
@@ -100,7 +82,7 @@ pub fn parse_args() -> (ParseResult, ShellAction, BookmarkAction) {
                     "" | "help" | "h" => {
                         print_bookmark_help();
                         std::io::stdout().flush().ok();
-                        return (ParseResult::Exit, ShellAction::None, BookmarkAction::None);
+                        return (ParseResult::Exit, BookmarkAction::None);
                     }
                     _ => {
                         eprintln!("Unknown bookmark subcommand: {}", subcommand);
@@ -123,11 +105,7 @@ pub fn parse_args() -> (ParseResult, ShellAction, BookmarkAction) {
                     .unwrap_or_else(|| Shell::detect().unwrap_or(Shell::Bash));
 
                 let _ = print_shell_init(shell);
-                return (
-                    ParseResult::Exit,
-                    ShellAction::ShellInit(shell),
-                    BookmarkAction::None,
-                );
+                return (ParseResult::Exit, BookmarkAction::None);
             }
             "--completions" => {
                 let shell = args
@@ -142,11 +120,7 @@ pub fn parse_args() -> (ParseResult, ShellAction, BookmarkAction) {
                     .unwrap_or_else(|| Shell::detect().unwrap_or(Shell::Bash));
 
                 let _ = print_completion(shell, NAME);
-                return (
-                    ParseResult::Exit,
-                    ShellAction::Completions(shell),
-                    BookmarkAction::None,
-                );
+                return (ParseResult::Exit, BookmarkAction::None);
             }
             // Handle query arguments
             arg if arg.starts_with('-') => {
@@ -161,18 +135,11 @@ pub fn parse_args() -> (ParseResult, ShellAction, BookmarkAction) {
         }
     }
 
-    // Default to fuzzy mode if not specified but query is provided
-    if query.is_some() && mode == AppMode::default() {
-        mode = AppMode::Fuzzy;
-    }
-
     (
         ParseResult::Config(Config {
             show_hidden,
             query,
-            mode,
         }),
-        shell_action,
         bookmark_action,
     )
 }
@@ -184,26 +151,22 @@ fn print_help() {
 USAGE:
     {} [OPTIONS] [QUERY]
 
-MODES:
-    (default)        Interactive fuzzy search
-    -f, --fuzzy     Enable fuzzy search mode
-    -b, --bookmark  Bookmark management
-
 OPTIONS:
     -a, --all           Show hidden directories
     -h, --help          Print help information
     -v, --version       Print version information
+    -b, --bookmark      Bookmark management
     --shell-init [SHELL] Print shell initialization script (bash/zsh/fish/auto)
     --completions SHELL Print shell completion script (bash/zsh/fish)
 
 KEYBINDINGS:
     /               Start search
     j / k           Move selection down/up
+    h / l           Navigate to parent/child directory
     Ctrl+U/D        Page up/down
     g / G           Go to top/bottom
     Enter           Confirm selection
     Backspace       Delete character
-    Ctrl+H          Toggle hidden files
     Esc / Ctrl+C    Cancel
 
 BOOKMARK COMMANDS:
