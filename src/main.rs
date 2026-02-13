@@ -202,6 +202,10 @@ fn run_fuzzy_mode(
                     if let Some(item) = fuzzy_state.selected_item() {
                         println!("{}", item.path());
                         return Ok(());
+                    } else {
+                        // If no items (e.g., empty directory), select current directory
+                        println!("{}", fuzzy_state.current_dir.display());
+                        return Ok(());
                     }
                 }
             },
