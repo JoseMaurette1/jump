@@ -26,7 +26,6 @@ impl Shell {
             None
         }
     }
-
 }
 
 /// Generate bash shell integration script

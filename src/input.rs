@@ -16,6 +16,9 @@ pub enum InputEvent {
     StartSearch,
     NavigateIn,
     NavigateOut,
+    ToggleHidden,
+    Bookmark,
+    RemoveBookmark,
     None,
 }
 
@@ -55,6 +58,9 @@ pub fn read_key(timeout_ms: u64) -> Result<InputEvent> {
                 KeyCode::Char('k') => return Ok(InputEvent::ScrollUp),
                 KeyCode::Char('l') => return Ok(InputEvent::NavigateIn),
                 KeyCode::Char('h') => return Ok(InputEvent::NavigateOut),
+                KeyCode::Char('b') => return Ok(InputEvent::Bookmark),
+                KeyCode::Char('x') => return Ok(InputEvent::RemoveBookmark),
+                KeyCode::Char('.') => return Ok(InputEvent::ToggleHidden),
                 KeyCode::Char(c) => return Ok(InputEvent::Char(c)),
                 _ => {}
             }

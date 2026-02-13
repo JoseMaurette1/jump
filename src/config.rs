@@ -136,10 +136,7 @@ pub fn parse_args() -> (ParseResult, BookmarkAction) {
     }
 
     (
-        ParseResult::Config(Config {
-            show_hidden,
-            query,
-        }),
+        ParseResult::Config(Config { show_hidden, query }),
         bookmark_action,
     )
 }

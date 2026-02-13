@@ -8,32 +8,161 @@ use ratatui::{
 
 use std::path::{Path, PathBuf};
 
+use crate::database::entry::DirEntry as DbDirEntry;
 use crate::fs::{self, DirEntry};
 use crate::fuzzy::FuzzyMatchEngine;
+use crate::Mode;
 
 /// Draw the fuzzy search TUI
-pub fn draw_fuzzy(frame: &mut Frame, state: &FuzzyState) {
+pub fn draw_fuzzy(frame: &mut Frame, state: &FuzzyState, mode: &Mode) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
-        .constraints([Constraint::Length(3), Constraint::Min(0)])
+        .constraints([
+            Constraint::Length(1),
+            Constraint::Length(3),
+            Constraint::Min(0),
+        ])
         .split(frame.area());
 
-    // Draw search input
-    let search_display = format!(" Search: {} ", state.search_query);
-    let search_style = if state.search_query.is_empty() {
-        Style::default().fg(Color::DarkGray)
-    } else {
-        Style::default().fg(Color::Yellow)
-    };
+    // Draw help bar
+    let hidden_indicator = if state.show_hidden { "on" } else { "off" };
+    let help_spans = vec![
+        Span::styled(
+            "j/k",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" nav [3j/6k]  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(
+            "h/l",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" in/out  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(
+            "/",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" search  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(
+            "b/x",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" bookmark/remove  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(
+            "g/G",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" top/bot  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(
+            ".",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(
+            format!(" hidden [{}]  ", hidden_indicator),
+            Style::default().fg(Color::DarkGray),
+        ),
+        Span::styled(
+            "Enter",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" select  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(
+            "Esc",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled(" quit", Style::default().fg(Color::DarkGray)),
+    ];
+    let help_line = Paragraph::new(Line::from(help_spans));
+    frame.render_widget(help_line, chunks[0]);
 
-    let search_block = Paragraph::new(search_display).style(search_style).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(format!(" {} ", state.current_dir.display())),
-    );
+    // Draw search/bookmark input
+    match mode {
+        Mode::BookmarkInput(alias) => {
+            let selected_name = state
+                .selected_item()
+                .map(|item| item.entry.name.as_str())
+                .unwrap_or("");
+            let display = format!(" Bookmark '{}' as: {} ", selected_name, alias);
+            let input_block = Paragraph::new(display)
+                .style(Style::default().fg(Color::Blue))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(Style::default().fg(Color::Blue))
+                        .title(" BOOKMARK "),
+                );
+            frame.render_widget(input_block, chunks[1]);
+        }
+        Mode::BookmarkRemove => {
+            let selected_name = state
+                .selected_item()
+                .map(|item| item.entry.name.as_str())
+                .unwrap_or("");
+            let bookmark_key = state
+                .selected_item()
+                .and_then(|item| item.bookmark_key.as_deref())
+                .unwrap_or("");
+            let display = format!(
+                " Remove bookmark '{}' -> {}? Press Enter to confirm ",
+                bookmark_key, selected_name
+            );
+            let input_block = Paragraph::new(display)
+                .style(Style::default().fg(Color::Red))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(Style::default().fg(Color::Red))
+                        .title(" REMOVE BOOKMARK "),
+                );
+            frame.render_widget(input_block, chunks[1]);
+        }
+        _ => {
+            let search_display = format!(" Search: {} ", state.search_query);
+            let (search_style, border_style, title) = if *mode == Mode::Search {
+                (
+                    Style::default().fg(Color::Yellow),
+                    Style::default().fg(Color::Blue),
+                    format!(" SEARCH: {} ", state.current_dir.display()),
+                )
+            } else if state.search_query.is_empty() {
+                (
+                    Style::default().fg(Color::DarkGray),
+                    Style::default(),
+                    format!(" {} ", state.current_dir.display()),
+                )
+            } else {
+                (
+                    Style::default().fg(Color::Yellow),
+                    Style::default(),
+                    format!(" {} ", state.current_dir.display()),
+                )
+            };
 
-    frame.render_widget(search_block, chunks[0]);
+            let search_block = Paragraph::new(search_display).style(search_style).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(border_style)
+                    .title(title),
+            );
+            frame.render_widget(search_block, chunks[1]);
+        }
+    }
 
     // Draw results
     let result_count = state.result_count();
@@ -57,35 +186,116 @@ pub fn draw_fuzzy(frame: &mut Frame, state: &FuzzyState) {
             .map(|(idx, item)| {
                 let global_idx = state.scroll_offset + idx;
                 let is_selected = global_idx == state.selected_index;
-
-                let line = Line::from(vec![
-                    Span::raw("  "),
-                    Span::styled(&item.entry.name, Style::default().fg(Color::White)),
-                    Span::styled("/", Style::default().fg(Color::DarkGray)),
-                ]);
-
-                let style = if is_selected {
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD)
+                let rel_num = if global_idx > state.selected_index {
+                    global_idx - state.selected_index
                 } else {
-                    Style::default().fg(Color::White)
+                    state.selected_index - global_idx
                 };
+                let rel_num_str = if rel_num == 0 {
+                    "  0 ".to_string()
+                } else {
+                    format!("{:>3} ", rel_num)
+                };
+                let num_style = if is_selected {
+                    Style::default()
+                        .fg(Color::White)
+                        .add_modifier(Modifier::BOLD)
+                } else if *mode == Mode::Search {
+                    Style::default().fg(Color::DarkGray)
+                } else {
+                    Style::default().fg(Color::Gray)
+                };
+                let num_span = Span::styled(rel_num_str, num_style);
 
-                ListItem::new(line).style(style)
+                if item.is_bookmark {
+                    let alias = item.bookmark_key.as_deref().unwrap_or("");
+                    let (prefix, star_style, alias_style, arrow_style, name_style) = if is_selected
+                    {
+                        let selection_color = if *mode == Mode::Search {
+                            Color::DarkGray
+                        } else {
+                            Color::Blue
+                        };
+                        (
+                            Span::styled(
+                                ">",
+                                Style::default()
+                                    .fg(selection_color)
+                                    .add_modifier(Modifier::BOLD),
+                            ),
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                            Style::default().fg(selection_color),
+                            Style::default()
+                                .fg(selection_color)
+                                .add_modifier(Modifier::BOLD),
+                        )
+                    } else {
+                        (
+                            Span::raw(" "),
+                            Style::default().fg(Color::Yellow),
+                            Style::default().fg(Color::Yellow),
+                            Style::default().fg(Color::DarkGray),
+                            Style::default().fg(Color::White),
+                        )
+                    };
+
+                    let line = Line::from(vec![
+                        num_span,
+                        prefix,
+                        Span::styled(" ★ ", star_style),
+                        Span::styled(alias, alias_style),
+                        Span::styled(" → ", arrow_style),
+                        Span::styled(&item.entry.name, name_style),
+                    ]);
+                    ListItem::new(line)
+                } else {
+                    let (prefix, name_style, slash_style) = if is_selected {
+                        let selection_color = if *mode == Mode::Search {
+                            Color::DarkGray
+                        } else {
+                            Color::Blue
+                        };
+                        (
+                            Span::styled(
+                                ">",
+                                Style::default()
+                                    .fg(selection_color)
+                                    .add_modifier(Modifier::BOLD),
+                            ),
+                            Style::default()
+                                .fg(selection_color)
+                                .add_modifier(Modifier::BOLD),
+                            Style::default().fg(selection_color),
+                        )
+                    } else {
+                        (
+                            Span::raw(" "),
+                            Style::default().fg(Color::White),
+                            Style::default().fg(Color::DarkGray),
+                        )
+                    };
+
+                    let line = Line::from(vec![
+                        num_span,
+                        prefix,
+                        Span::styled(" ", name_style),
+                        Span::styled(&item.entry.name, name_style),
+                        Span::styled("/", slash_style),
+                    ]);
+                    ListItem::new(line)
+                }
             })
             .collect()
     };
 
-    let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title(title))
-        .highlight_style(
-            Style::default()
-                .add_modifier(Modifier::REVERSED)
-                .bg(Color::Blue),
-        );
+    let list = List::new(items).block(Block::default().borders(Borders::ALL).title(title));
 
-    frame.render_widget(list, chunks[1]);
+    frame.render_widget(list, chunks[2]);
 }
 
 /// A fuzzy search result item with matched path
@@ -93,6 +303,8 @@ pub fn draw_fuzzy(frame: &mut Frame, state: &FuzzyState) {
 pub struct FuzzyItem {
     pub entry: DirEntry,
     pub match_score: i64,
+    pub is_bookmark: bool,
+    pub bookmark_key: Option<String>,
 }
 
 impl FuzzyItem {
@@ -100,6 +312,20 @@ impl FuzzyItem {
         Self {
             entry,
             match_score,
+            is_bookmark: false,
+            bookmark_key: None,
+        }
+    }
+
+    pub fn from_bookmark(db_entry: &DbDirEntry) -> Self {
+        Self {
+            entry: DirEntry {
+                path: PathBuf::from(&db_entry.path),
+                name: db_entry.name.clone(),
+            },
+            match_score: 0,
+            is_bookmark: true,
+            bookmark_key: db_entry.bookmark_key.clone(),
         }
     }
 
@@ -119,16 +345,15 @@ pub struct FuzzyState {
     pub matcher: FuzzyMatchEngine,
     pub current_dir: PathBuf,
     pub show_hidden: bool,
+    pub bookmarks: Vec<DbDirEntry>,
+    pub motion_count: Option<usize>,
 }
 
 impl FuzzyState {
     /// Create a new FuzzyState by scanning the given directory
     pub fn new_in_dir(dir: &Path, show_hidden: bool) -> Self {
         let entries = fs::scan_directories(dir, show_hidden).unwrap_or_default();
-        let items: Vec<FuzzyItem> = entries
-            .into_iter()
-            .map(|e| FuzzyItem::new(e, 0))
-            .collect();
+        let items: Vec<FuzzyItem> = entries.into_iter().map(|e| FuzzyItem::new(e, 0)).collect();
 
         Self {
             search_query: String::new(),
@@ -139,16 +364,14 @@ impl FuzzyState {
             matcher: FuzzyMatchEngine::new(),
             current_dir: dir.to_path_buf(),
             show_hidden,
+            bookmarks: Vec::new(),
+            motion_count: None,
         }
     }
 
-    /// Initialize with a list of entries (for tests)
     #[cfg(test)]
     pub fn with_entries(entries: Vec<DirEntry>) -> Self {
-        let items: Vec<FuzzyItem> = entries
-            .into_iter()
-            .map(|e| FuzzyItem::new(e, 0))
-            .collect();
+        let items: Vec<FuzzyItem> = entries.into_iter().map(|e| FuzzyItem::new(e, 0)).collect();
 
         Self {
             search_query: String::new(),
@@ -159,6 +382,33 @@ impl FuzzyState {
             matcher: FuzzyMatchEngine::new(),
             current_dir: PathBuf::from("/"),
             show_hidden: false,
+            bookmarks: Vec::new(),
+            motion_count: None,
+        }
+    }
+
+    pub fn set_bookmarks(&mut self, bookmarks: Vec<DbDirEntry>) {
+        self.bookmarks = bookmarks;
+        self.refresh_bookmark_status();
+    }
+
+    fn refresh_bookmark_status(&mut self) {
+        let update_item = |item: &mut FuzzyItem| {
+            let path_str = item.entry.path.to_string_lossy().to_string();
+            if let Some(bm) = self.bookmarks.iter().find(|b| b.path == path_str) {
+                item.is_bookmark = true;
+                item.bookmark_key = bm.bookmark_key.clone();
+            } else {
+                item.is_bookmark = false;
+                item.bookmark_key = None;
+            }
+        };
+
+        for item in &mut self.all_items {
+            update_item(item);
+        }
+        for item in &mut self.items {
+            update_item(item);
         }
     }
 
@@ -183,7 +433,19 @@ impl FuzzyState {
         let entries = fs::scan_directories(dir, self.show_hidden).unwrap_or_default();
         let items: Vec<FuzzyItem> = entries
             .into_iter()
-            .map(|e| FuzzyItem::new(e, 0))
+            .map(|e| {
+                let path_str = e.path.to_string_lossy().to_string();
+                if let Some(bm) = self.bookmarks.iter().find(|b| b.path == path_str) {
+                    FuzzyItem {
+                        entry: e,
+                        match_score: 0,
+                        is_bookmark: true,
+                        bookmark_key: bm.bookmark_key.clone(),
+                    }
+                } else {
+                    FuzzyItem::new(e, 0)
+                }
+            })
             .collect();
 
         self.current_dir = dir.to_path_buf();
@@ -192,9 +454,17 @@ impl FuzzyState {
         self.search_query.clear();
         self.selected_index = 0;
         self.scroll_offset = 0;
+        self.motion_count = None;
     }
 
-    /// Update search query and re-filter results
+    pub fn set_motion_count(&mut self, count: usize) {
+        self.motion_count = Some(count);
+    }
+
+    pub fn take_motion_count(&mut self) -> usize {
+        self.motion_count.take().unwrap_or(1)
+    }
+
     pub fn set_query(&mut self, query: &str) {
         self.search_query = query.to_string();
         self.filter_results();
@@ -218,6 +488,11 @@ impl FuzzyState {
         self.filter_results();
     }
 
+    /// Re-run filtering with current query (e.g. after bookmarks change)
+    pub fn refilter(&mut self) {
+        self.filter_results();
+    }
+
     fn filter_results(&mut self) {
         if self.search_query.is_empty() {
             self.items = self.all_items.clone();
@@ -229,15 +504,44 @@ impl FuzzyState {
         let pattern = &self.search_query;
         let matcher = &self.matcher;
 
+        // Filter directory items
         let mut filtered: Vec<FuzzyItem> = self
             .all_items
             .iter()
             .filter_map(|item| {
-                matcher.get_score(pattern, &item.entry.name).map(|score| {
-                    FuzzyItem::new(item.entry.clone(), score)
-                })
+                matcher
+                    .get_score(pattern, &item.entry.name)
+                    .map(|score| FuzzyItem::new(item.entry.clone(), score))
             })
             .collect();
+
+        // Also match bookmarks by name and alias
+        for bm in &self.bookmarks {
+            let name_score = matcher.get_score(pattern, &bm.name);
+            let alias_score = bm
+                .bookmark_key
+                .as_deref()
+                .and_then(|key| matcher.get_score(pattern, key));
+
+            let best_score = match (name_score, alias_score) {
+                (Some(a), Some(b)) => Some(a.max(b)),
+                (Some(a), None) => Some(a),
+                (None, Some(b)) => Some(b),
+                (None, None) => None,
+            };
+
+            if let Some(score) = best_score {
+                // Don't add duplicate if bookmark path is already in directory items
+                let already_present = filtered
+                    .iter()
+                    .any(|item| item.entry.path.to_string_lossy() == bm.path);
+                if !already_present {
+                    let mut bm_item = FuzzyItem::from_bookmark(bm);
+                    bm_item.match_score = score;
+                    filtered.push(bm_item);
+                }
+            }
+        }
 
         filtered.sort_by(|a, b| {
             b.match_score
@@ -314,6 +618,13 @@ impl FuzzyState {
         } else if self.selected_index >= self.scroll_offset + visible_height {
             self.scroll_offset = self.selected_index - visible_height + 1;
         }
+    }
+
+    /// Toggle hidden file visibility and reload directory
+    pub fn toggle_hidden(&mut self) {
+        self.show_hidden = !self.show_hidden;
+        let dir = self.current_dir.clone();
+        self.load_dir(&dir);
     }
 
     /// Get number of results
@@ -459,5 +770,25 @@ mod tests {
 
         state.move_down();
         assert_eq!(state.selected_item().unwrap().entry.name, "banana");
+    }
+
+    #[test]
+    fn test_bookmark_search_results() {
+        let entries = vec![test_entry("projects"), test_entry("documents")];
+        let mut state = FuzzyState::with_entries(entries);
+
+        state.set_bookmarks(vec![DbDirEntry {
+            path: "/home/user/work".to_string(),
+            name: "work".to_string(),
+            is_bookmark: true,
+            bookmark_key: Some("w".to_string()),
+        }]);
+
+        // Search for "w" should find the bookmark
+        state.add_char('w');
+        assert!(state
+            .items
+            .iter()
+            .any(|i| i.is_bookmark && i.entry.name == "work"));
     }
 }
