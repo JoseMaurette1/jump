@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-02-13
+
+### Added
+
+- **Relative Line Numbers** — Vim-style relative numbering shows distance from cursor
+- **Vim Motion Counts** — Numeric prefix support (e.g., `3j` moves down 3, `5k` moves up 5)
+- **Tree Navigation** — `h/l` keys to navigate parent/child directories without leaving the TUI
+- **Interactive Bookmarking** — `b` to bookmark from TUI, `x` to remove bookmarks
+- **Hidden Toggle** — `.` key to toggle hidden file visibility in Normal mode
+
+### Changed
+
+- Simplified database schema (removed `score`, `access_count`, `last_accessed` columns)
+- Removed `clap` dependency — CLI parsing is now fully custom in `config.rs`
+- `config::parse_args()` now returns `(ParseResult, BookmarkAction)` instead of a 3-tuple
+- Added `Mode` enum state machine in `main.rs` (Normal, Search, BookmarkInput, BookmarkRemove)
+
+### Removed
+
+- Legacy browse mode with two-character labels
+- `cli.rs` module (clap derive structs)
+- Scoring/frequency algorithm (simplified to bookmark-based persistence)
+
+---
+
 ## [1.0.0] - 2025-02-10
 
 ### Added

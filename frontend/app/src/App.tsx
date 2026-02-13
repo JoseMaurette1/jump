@@ -14,13 +14,12 @@ export function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={
-            <div className="min-h-screen bg-background text-foreground flex flex-col items-center">
-              <div className="w-full max-w-5xl border-x border-border/40 min-h-screen relative shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] bg-background/50">
-                  <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] pointer-events-none -z-10" />
-                  <Header />
-                  <main>
-                    <LandingPage />
-                  </main>
+            <div className="min-h-screen bg-background text-foreground flex justify-center">
+              <div className="w-full max-w-7xl border-x border-zinc-800 min-h-screen">
+                <Header />
+                <main>
+                  <LandingPage />
+                </main>
               </div>
             </div>
           } />

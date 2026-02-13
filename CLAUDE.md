@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Jump is a Vim-inspired directory navigation CLI tool written in Rust. It replaces `cd` with fuzzy search, bookmarks, and shell integration. Current version: 1.0.0.
+Jump is a Vim-inspired directory navigation CLI tool written in Rust. It replaces `cd` with fuzzy search, bookmarks, and shell integration. Current version: 1.1.0.
 
 ## Build & Test Commands
 
@@ -22,35 +22,35 @@ The binary entry point is `src/main.rs`, which parses args via `src/config.rs` (
 
 **Module structure:**
 
-- `config.rs` — CLI argument parsing, returns `(ParseResult, ShellAction, BookmarkAction)`. Custom hand-rolled parser using `env::args()`.
+- `config.rs` — CLI argument parsing, returns `(ParseResult, BookmarkAction)`. Custom hand-rolled parser using `env::args()`.
 - `fs.rs` — Directory scanning with `walkdir` (depth=1, no symlink following). Defines its own `DirEntry` (path + name) used by the UI.
-- `database/db.rs` — SQLite persistence (WAL mode) for bookmarks and directory entries. DB path via `directories` crate (`~/.local/share/jump/jump.db` on Linux).
-- `database/entry.rs` — `DirEntry` struct for database records (with score, access_count, bookmark fields). Distinct from `fs::DirEntry`.
+- `database/db.rs` — SQLite persistence (WAL mode) for bookmarks. DB path via `directories` crate (`~/.local/share/jump/jump.db` on Linux).
+- `database/entry.rs` — `DirEntry` struct for database records (with `is_bookmark`, `bookmark_key` fields). Distinct from `fs::DirEntry`.
 - `fuzzy.rs` → `fuzzy/matcher.rs` — Wrapper around `fuzzy_matcher::skim::SkimMatcherV2`.
-- `ui/fuzzy.rs` — Core TUI: `FuzzyState` state machine + `draw_fuzzy()` ratatui renderer. Largest file, contains filtering/navigation/selection logic.
+- `ui/fuzzy.rs` — Core TUI: `FuzzyState` state machine + `draw_fuzzy()` ratatui renderer. Largest file (~800 lines), contains filtering/navigation/selection logic.
 - `input.rs` — Terminal key event handling via crossterm. Maps raw key events to `InputEvent` enum.
 - `shell.rs` — Shell init script and completion generation for bash/zsh/fish. Tests in `shell/tests.rs`.
-- `cli.rs` — Clap derive structs (used alongside custom parser in `config.rs`).
 
 **Data flow in fuzzy mode:**
 1. `config::parse_args()` → determines mode
 2. `fs::scan_directories()` → collects immediate child directories
-3. `FuzzyState::with_entries()` → initializes UI state
+3. `FuzzyState::new_in_dir()` → initializes UI state, loads bookmarks from DB
 4. Event loop in `main.rs`: reads keys → mutates `FuzzyState` → renders via `draw_fuzzy()`
 5. On Enter: prints selected path to stdout (shell wrapper does the `cd`)
 
-**Two DirEntry types exist:** `fs::DirEntry` (simple path+name for UI display) and `database::entry::DirEntry` (full record with score, access_count, bookmark_key for persistence).
+**Mode state machine** (`main.rs`): `Normal` → navigation, `Search` → fuzzy input, `BookmarkInput(String)` → entering bookmark alias, `BookmarkRemove` → confirming removal.
 
-**Vim keybindings:** `/` to search, `j/k` navigation, `g/G` top/bottom, `Ctrl+U/D` page up/down, `Enter` select, `Esc` quit.
+**Two DirEntry types exist:** `fs::DirEntry` (simple path+name for UI display) and `database::entry::DirEntry` (full record with `is_bookmark`, `bookmark_key` for persistence).
+
+**Vim keybindings:** `/` to search, `j/k` navigation, `h/l` parent/child navigation, `g/G` top/bottom, `Ctrl+U/D` page up/down, `b` bookmark, `x` remove bookmark, `.` toggle hidden, `[0-9]` motion count prefix (e.g. `3j`), `Enter` select, `Esc` quit.
 
 ## Key Dependencies
 
-- `ratatui` + `crossterm` — TUI rendering and terminal control
-- `rusqlite` (bundled) — SQLite database
-- `fuzzy-matcher` — SkimMatcherV2 scoring
-- `walkdir` — Directory traversal
-- `directories` — Platform-specific data paths
-- `clap` (derive) — CLI struct definitions
+- `ratatui` (0.29) + `crossterm` (0.28) — TUI rendering and terminal control
+- `rusqlite` (0.32, bundled) — SQLite database
+- `fuzzy-matcher` (0.3) — SkimMatcherV2 scoring
+- `walkdir` (2.5) — Directory traversal
+- `directories` (5) — Platform-specific data paths
 - `anyhow` + `thiserror` — Error handling
 
 ## Testing

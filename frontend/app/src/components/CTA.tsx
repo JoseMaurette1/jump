@@ -1,22 +1,19 @@
 import { Button } from "@/components/ui/button"
-import { Copy, Terminal } from "lucide-react"
+import { Copy } from "lucide-react"
 import { useState } from "react"
 
 const installCommands = {
     linux: {
-	label: "Linux",
-	cmd: "curl -sSL https://raw.githubusercontent.com/JoseMaurette1/jump/master/install.sh | bash",
-	shell: "bash"
+	label: "linux",
+	cmd: "curl -fsSL https://raw.githubusercontent.com/JoseMaurette1/jump/master/install.sh | bash"
     },
     macos: {
 	label: "macOS",
-	cmd: "curl -sSL https://raw.githubusercontent.com/JoseMaurette1/jump/master/install.sh | zsh",
-	shell: "zsh"
+	cmd: "curl -fsSL https://raw.githubusercontent.com/JoseMaurette1/jump/master/install.sh | zsh"
     },
     windows: {
-	label: "Windows (PowerShell)",
-	cmd: "irm https://raw.githubusercontent.com/JoseMaurette1/jump/master/install.ps1 | iex",
-	shell: "powershell"
+	label: "windows",
+	cmd: "irm https://raw.githubusercontent.com/JoseMaurette1/jump/master/install.ps1 | iex"
     }
 }
 
@@ -31,67 +28,52 @@ export function CTA() {
     }
 
     return (
-
-	<>
-	    <div className="w-full max-w-2xl mx-auto">
-		<div className="grid w-full grid-cols-3 mb-8 bg-muted p-1 rounded-lg">
-		    <button
-			onClick={() => setActiveTab('linux')}
-			className={`text-sm font-medium py-2 rounded-md transition-all ${activeTab === 'linux'
-			    ? 'bg-background text-foreground shadow-sm'
-			    : 'text-muted-foreground hover:text-foreground'
-			}`}
-		    >
-			Linux
-		    </button>
-		    <button
-			onClick={() => setActiveTab('macos')}
-			className={`text-sm font-medium py-2 rounded-md transition-all ${activeTab === 'macos'
-			    ? 'bg-background text-foreground shadow-sm'
-			    : 'text-muted-foreground hover:text-foreground'
-			}`}
-		    >
-			macOS
-		    </button>
-		    <button
-			onClick={() => setActiveTab('windows')}
-			className={`text-sm font-medium py-2 rounded-md transition-all ${activeTab === 'windows'
-			    ? 'bg-background text-foreground shadow-sm'
-			    : 'text-muted-foreground hover:text-foreground'
-			}`}
-		    >
-			Windows
-		    </button>
-		</div>
-
-		<div className="relative group text-left">
-		    <div className="bg-zinc-950 p-6 rounded-lg font-mono text-sm overflow-x-auto border border-zinc-800 shadow-xl">
-			<div className="flex items-center gap-2 text-zinc-500 mb-2 select-none uppercase text-xs font-bold tracking-wider">
-			    <Terminal className="h-3 w-3" />
-			    <span>{installCommands[activeTab].shell}</span>
-			</div>
-			<code className="block text-zinc-100 whitespace-pre-wrap break-all pr-12">
-			    {installCommands[activeTab].cmd}
-			</code>
+	<section className="px-6 pb-16 max-w-7xl mx-auto">
+	    {/* Install Command Box */}
+	    <div className="max-w-2xl mx-auto">
+		<div className="bg-zinc-900/50 rounded-xl border border-zinc-800 overflow-hidden">
+		    {/* Tabs */}
+		    <div className="flex border-b border-zinc-800 bg-zinc-950/50">
+			{(Object.keys(installCommands) as Array<keyof typeof installCommands>).map((key) => (
+			    <button
+				key={key}
+				onClick={() => setActiveTab(key)}
+				className={`px-6 py-3 text-sm font-mono transition-colors relative ${
+				    activeTab === key
+					? 'text-zinc-100'
+					: 'text-zinc-500 hover:text-zinc-300'
+				}`}
+			    >
+				{installCommands[key].label}
+				{activeTab === key && (
+				    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+				)}
+			    </button>
+			))}
 		    </div>
-		    <Button
-			size="icon"
-			variant="ghost"
-			className="absolute top-4 right-4 text-zinc-400 hover:text-white hover:bg-zinc-800"
-			onClick={() => copyToClipboard(installCommands[activeTab].cmd)}
-		    >
-			{copied === installCommands[activeTab].cmd ? (
-			    <span className="text-green-500 font-bold">✓</span>
-			) : (
+
+		    {/* Command */}
+		    <div className="relative">
+			<div className="p-6 font-mono text-sm">
+			    <code className="text-zinc-100 block pr-12">
+				{installCommands[activeTab].cmd}
+			    </code>
+			</div>
+			<Button
+			    size="icon"
+			    variant="ghost"
+			    className="absolute top-3 right-3 text-zinc-500 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+			    onClick={() => copyToClipboard(installCommands[activeTab].cmd)}
+			>
+			    {copied === installCommands[activeTab].cmd ? (
+				<span className="text-green-500 font-bold text-lg">✓</span>
+			    ) : (
 				<Copy className="h-4 w-4" />
 			    )}
-		    </Button>
+			</Button>
+		    </div>
 		</div>
 	    </div>
-
-	    <p className="mt-8 text-sm flex text-muted-foreground justify-center">
-		After installation, restart your shell so PATH updates apply.
-	    </p>
-	</>
+	</section>
     )
 }
