@@ -1,19 +1,23 @@
 const features = [
   {
     title: "Fuzzy search",
-    description: "Type / to filter directories with real-time fuzzy matching"
+    description: "Type '/' to filter directories with real-time fuzzy matching"
   },
   {
     title: "Bookmarks",
-    description: "Press b to bookmark any directory with custom keys"
+    description: "Press 'b' to bookmark any directory with custom keys"
+  },
+  {
+    title: "Directory & File manipulation",
+    description: "Press 'a' to create any directory or file inside of Jump"
   },
   {
     title: "Vim keybindings",
-    description: "Navigate with j/k, jump with gg/G, motion counts like 3j"
+    description: "Navigate with 'j/k', jump with 'g/G', motion counts like 3j"
   },
   {
     title: "Tree navigation",
-    description: "Press h/l to navigate parent/child without leaving the TUI"
+    description: "Press 'h/l' to navigate parent/child without leaving the TUI"
   },
   {
     title: "Relative line numbers",
@@ -25,7 +29,7 @@ const features = [
   },
   {
     title: "Shell integration",
-    description: "Works with bash, zsh, and fish shells"
+    description: "Works with bash, zsh, shells"
   }
 ]
 

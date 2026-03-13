@@ -5,6 +5,7 @@ use walkdir::WalkDir;
 pub struct DirEntry {
     pub path: PathBuf,
     pub name: String,
+    pub is_dir: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -17,7 +18,7 @@ pub enum ScanError {
     IoError(#[from] std::io::Error),
 }
 
-pub fn scan_directories(dir: &Path, show_hidden: bool) -> Result<Vec<DirEntry>, ScanError> {
+pub fn scan_directories(dir: &Path, show_hidden: bool, show_files: bool) -> Result<Vec<DirEntry>, ScanError> {
     if !dir.exists() {
         return Err(ScanError::NotFound(dir.to_path_buf()));
     }
@@ -36,7 +37,11 @@ pub fn scan_directories(dir: &Path, show_hidden: bool) -> Result<Vec<DirEntry>, 
     {
         match entry {
             Ok(e) => {
-                if !e.file_type().is_dir() {
+                let is_dir = e.file_type().is_dir();
+                if !is_dir && !show_files {
+                    continue;
+                }
+                if !is_dir && !e.file_type().is_file() {
                     continue;
                 }
 
@@ -51,6 +56,7 @@ pub fn scan_directories(dir: &Path, show_hidden: bool) -> Result<Vec<DirEntry>, 
                 entries.push(DirEntry {
                     name: e.file_name().to_string_lossy().into_owned(),
                     path: e.path().to_path_buf(),
+                    is_dir,
                 });
             }
             Err(e) => {
@@ -61,7 +67,11 @@ pub fn scan_directories(dir: &Path, show_hidden: bool) -> Result<Vec<DirEntry>, 
         }
     }
 
-    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    // Sort: dirs first, then files, both alphabetically
+    entries.sort_by(|a, b| {
+        b.is_dir.cmp(&a.is_dir)
+            .then_with(|| a.name.to_lowercase().cmp(&b.name.to_lowercase()))
+    });
 
     Ok(entries)
 }
@@ -89,20 +99,20 @@ mod tests {
     #[test]
     fn test_scan_current_dir() {
         let current = env::current_dir().unwrap();
-        let result = scan_directories(&current, false);
+        let result = scan_directories(&current, false, false);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_scan_with_hidden() {
         let current = env::current_dir().unwrap();
-        let result = scan_directories(&current, true);
+        let result = scan_directories(&current, true, false);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_scan_nonexistent() {
-        let result = scan_directories(Path::new("/nonexistent/path"), false);
+        let result = scan_directories(Path::new("/nonexistent/path"), false, false);
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ScanError::NotFound(_)));
     }
@@ -111,7 +121,7 @@ mod tests {
     fn test_scan_not_directory() {
         let temp_file = std::env::temp_dir().join("jump_test_file");
         std::fs::write(&temp_file, "test").unwrap();
-        let result = scan_directories(&temp_file, false);
+        let result = scan_directories(&temp_file, false, false);
         std::fs::remove_file(&temp_file).ok();
         assert!(result.is_err());
         assert!(matches!(result.unwrap_err(), ScanError::NotDirectory(_)));

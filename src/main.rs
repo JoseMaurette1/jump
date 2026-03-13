@@ -25,6 +25,8 @@ pub enum Mode {
     Search,
     BookmarkInput(String),
     BookmarkRemove,
+    CreateEntry(String),
+    ShowHelp,
 }
 
 fn main() -> Result<()> {
@@ -154,13 +156,15 @@ fn run_fuzzy_mode(
                 Mode::Search => fuzzy_state.add_char('/'),
                 Mode::BookmarkInput(ref mut alias) => alias.push('/'),
                 Mode::BookmarkRemove => {}
+                Mode::CreateEntry(ref mut name) => name.push('/'),
+                Mode::ShowHelp => mode = Mode::Normal,
             },
             InputEvent::Escape => match mode {
                 Mode::Search => {
                     mode = Mode::Normal;
                     fuzzy_state.clear_query();
                 }
-                Mode::BookmarkInput(_) | Mode::BookmarkRemove => {
+                Mode::BookmarkInput(_) | Mode::BookmarkRemove | Mode::CreateEntry(_) | Mode::ShowHelp => {
                     mode = Mode::Normal;
                 }
                 Mode::Normal => {
@@ -198,6 +202,25 @@ fn run_fuzzy_mode(
                     }
                     mode = Mode::Normal;
                 }
+                Mode::CreateEntry(ref name) => {
+                    if !name.is_empty() {
+                        let target = fuzzy_state.current_dir.join(name.trim_end_matches('/'));
+                        let result = if name.ends_with('/') {
+                            std::fs::create_dir_all(&target).map_err(anyhow::Error::from)
+                        } else {
+                            // create parent dirs if needed, then create file
+                            if let Some(parent) = target.parent() {
+                                std::fs::create_dir_all(parent)?;
+                            }
+                            std::fs::File::create(&target).map(|_| ()).map_err(anyhow::Error::from)
+                        };
+                        if let Err(e) = result {
+                            eprintln!("jump: create failed: {e}");
+                        }
+                        fuzzy_state.reload();
+                    }
+                    mode = Mode::Normal;
+                }
                 _ => {
                     if let Some(item) = fuzzy_state.selected_item() {
                         println!("{}", item.path());
@@ -214,12 +237,16 @@ fn run_fuzzy_mode(
                 Mode::BookmarkInput(ref mut alias) => alias.push('l'),
                 Mode::Normal => fuzzy_state.navigate_into(),
                 Mode::BookmarkRemove => {}
+                Mode::CreateEntry(ref mut name) => name.push('l'),
+                Mode::ShowHelp => mode = Mode::Normal,
             },
             InputEvent::NavigateOut => match mode {
                 Mode::Search => fuzzy_state.add_char('h'),
                 Mode::BookmarkInput(ref mut alias) => alias.push('h'),
                 Mode::Normal => fuzzy_state.navigate_back(),
                 Mode::BookmarkRemove => {}
+                Mode::CreateEntry(ref mut name) => name.push('h'),
+                Mode::ShowHelp => mode = Mode::Normal,
             },
             InputEvent::Bookmark => match mode {
                 Mode::Normal => {
@@ -230,6 +257,8 @@ fn run_fuzzy_mode(
                 Mode::Search => fuzzy_state.add_char('b'),
                 Mode::BookmarkInput(ref mut alias) => alias.push('b'),
                 Mode::BookmarkRemove => {}
+                Mode::CreateEntry(ref mut name) => name.push('b'),
+                Mode::ShowHelp => mode = Mode::Normal,
             },
             InputEvent::RemoveBookmark => match mode {
                 Mode::Normal => {
@@ -242,6 +271,8 @@ fn run_fuzzy_mode(
                 Mode::Search => fuzzy_state.add_char('x'),
                 Mode::BookmarkInput(ref mut alias) => alias.push('x'),
                 Mode::BookmarkRemove => {}
+                Mode::CreateEntry(ref mut name) => name.push('x'),
+                Mode::ShowHelp => mode = Mode::Normal,
             },
             InputEvent::Char(c) => match mode {
                 Mode::Search => fuzzy_state.add_char(c),
@@ -256,6 +287,8 @@ fn run_fuzzy_mode(
                     }
                 }
                 Mode::BookmarkRemove => {}
+                Mode::CreateEntry(ref mut name) => name.push(c),
+                Mode::ShowHelp => mode = Mode::Normal,
             },
             InputEvent::Backspace => match mode {
                 Mode::Search => {
@@ -267,7 +300,10 @@ fn run_fuzzy_mode(
                 Mode::BookmarkInput(ref mut alias) => {
                     alias.pop();
                 }
-                Mode::Normal | Mode::BookmarkRemove => {}
+                Mode::CreateEntry(ref mut name) => {
+                    name.pop();
+                }
+                Mode::Normal | Mode::BookmarkRemove | Mode::ShowHelp => {}
             },
             InputEvent::ScrollUp => match mode {
                 Mode::Search => fuzzy_state.add_char('k'),
@@ -279,6 +315,8 @@ fn run_fuzzy_mode(
                     }
                 }
                 Mode::BookmarkRemove => {}
+                Mode::CreateEntry(ref mut name) => name.push('k'),
+                Mode::ShowHelp => mode = Mode::Normal,
             },
             InputEvent::ScrollDown => match mode {
                 Mode::Search => fuzzy_state.add_char('j'),
@@ -290,32 +328,64 @@ fn run_fuzzy_mode(
                     }
                 }
                 Mode::BookmarkRemove => {}
+                Mode::CreateEntry(ref mut name) => name.push('j'),
+                Mode::ShowHelp => mode = Mode::Normal,
             },
             InputEvent::GoToStart => match mode {
                 Mode::Search => fuzzy_state.add_char('g'),
                 Mode::BookmarkInput(ref mut alias) => alias.push('g'),
                 Mode::Normal => fuzzy_state.go_to_start(),
                 Mode::BookmarkRemove => {}
+                Mode::CreateEntry(ref mut name) => name.push('g'),
+                Mode::ShowHelp => mode = Mode::Normal,
             },
             InputEvent::GoToEnd => match mode {
                 Mode::Search => fuzzy_state.add_char('G'),
                 Mode::BookmarkInput(ref mut alias) => alias.push('G'),
                 Mode::Normal => fuzzy_state.go_to_end(),
                 Mode::BookmarkRemove => {}
+                Mode::CreateEntry(ref mut name) => name.push('G'),
+                Mode::ShowHelp => mode = Mode::Normal,
             },
             InputEvent::PageUp => match mode {
                 Mode::Normal | Mode::Search => fuzzy_state.page_up(),
-                Mode::BookmarkInput(_) | Mode::BookmarkRemove => {}
+                Mode::BookmarkInput(_) | Mode::BookmarkRemove | Mode::CreateEntry(_) | Mode::ShowHelp => {}
             },
             InputEvent::PageDown => match mode {
                 Mode::Normal | Mode::Search => fuzzy_state.page_down(),
-                Mode::BookmarkInput(_) | Mode::BookmarkRemove => {}
+                Mode::BookmarkInput(_) | Mode::BookmarkRemove | Mode::CreateEntry(_) | Mode::ShowHelp => {}
             },
             InputEvent::ToggleHidden => match mode {
                 Mode::Search => fuzzy_state.add_char('.'),
                 Mode::BookmarkInput(ref mut alias) => alias.push('.'),
                 Mode::Normal => fuzzy_state.toggle_hidden(),
                 Mode::BookmarkRemove => {}
+                Mode::CreateEntry(ref mut name) => name.push('.'),
+                Mode::ShowHelp => mode = Mode::Normal,
+            },
+            InputEvent::ToggleFiles => match mode {
+                Mode::Search => fuzzy_state.add_char('f'),
+                Mode::BookmarkInput(ref mut alias) => alias.push('f'),
+                Mode::Normal => fuzzy_state.toggle_files(),
+                Mode::BookmarkRemove => {}
+                Mode::CreateEntry(ref mut name) => name.push('f'),
+                Mode::ShowHelp => mode = Mode::Normal,
+            },
+            InputEvent::Add => match mode {
+                Mode::Normal => mode = Mode::CreateEntry(String::new()),
+                Mode::Search => fuzzy_state.add_char('a'),
+                Mode::BookmarkInput(ref mut alias) => alias.push('a'),
+                Mode::BookmarkRemove => {}
+                Mode::CreateEntry(ref mut name) => name.push('a'),
+                Mode::ShowHelp => {}
+            },
+            InputEvent::ShowHelp => match mode {
+                Mode::Normal => mode = Mode::ShowHelp,
+                Mode::ShowHelp => mode = Mode::Normal,
+                Mode::Search => fuzzy_state.add_char('?'),
+                Mode::BookmarkInput(ref mut alias) => alias.push('?'),
+                Mode::BookmarkRemove => {}
+                Mode::CreateEntry(ref mut name) => name.push('?'),
             },
             InputEvent::None => {}
         }

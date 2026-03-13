@@ -6,9 +6,7 @@ export function Hero() {
           <span className="text-xs px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-400">
             New
           </span>
-          <span className="ml-2 text-sm text-zinc-500">
-			SQlite Support for Bookmarks
-          </span>
+          <span className="ml-2 text-sm text-zinc-500">Directory and File creation</span>
         </div>
 
         <h1 className="text-4xl sm:text-5xl font-bold leading-tight">

@@ -15,10 +15,16 @@ use crate::Mode;
 
 /// Draw the fuzzy search TUI
 pub fn draw_fuzzy(frame: &mut Frame, state: &FuzzyState, mode: &Mode) {
+    // If showing help, render help screen instead
+    if *mode == Mode::ShowHelp {
+        return draw_help(frame);
+    }
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .margin(1)
         .constraints([
+            Constraint::Length(1),
             Constraint::Length(1),
             Constraint::Length(3),
             Constraint::Min(0),
@@ -26,7 +32,6 @@ pub fn draw_fuzzy(frame: &mut Frame, state: &FuzzyState, mode: &Mode) {
         .split(frame.area());
 
     // Draw help bar
-    let hidden_indicator = if state.show_hidden { "on" } else { "off" };
     let help_spans = vec![
         Span::styled(
             "j/k",
@@ -34,62 +39,71 @@ pub fn draw_fuzzy(frame: &mut Frame, state: &FuzzyState, mode: &Mode) {
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" nav [3j/6k]  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(" [up/down]  ", Style::default().fg(Color::DarkGray)),
         Span::styled(
             "h/l",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" in/out  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(" [in/out]  ", Style::default().fg(Color::DarkGray)),
         Span::styled(
             "/",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" search  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(" [search]  ", Style::default().fg(Color::DarkGray)),
         Span::styled(
-            "b/x",
+            "a",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" bookmark/remove  ", Style::default().fg(Color::DarkGray)),
-        Span::styled(
-            "g/G",
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        ),
-        Span::styled(" top/bot  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(" [create]  ", Style::default().fg(Color::DarkGray)),
         Span::styled(
             ".",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         ),
+        Span::styled(" [hidden]  ", Style::default().fg(Color::DarkGray)),
         Span::styled(
-            format!(" hidden [{}]  ", hidden_indicator),
-            Style::default().fg(Color::DarkGray),
+            "f",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         ),
+        Span::styled(" [files]  ", Style::default().fg(Color::DarkGray)),
         Span::styled(
             "Enter",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" select  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(" [select]  ", Style::default().fg(Color::DarkGray)),
         Span::styled(
-            "Esc",
+            "?",
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled(" quit", Style::default().fg(Color::DarkGray)),
+        Span::styled(" [help]", Style::default().fg(Color::DarkGray)),
     ];
     let help_line = Paragraph::new(Line::from(help_spans));
     frame.render_widget(help_line, chunks[0]);
+
+    // Draw toggle status line
+    let hidden_text = if state.show_hidden { "[hidden:ON]" } else { "[hidden:off]" };
+    let files_text = if state.show_files { "[files:ON]" } else { "[files:off]" };
+
+    let toggle_spans = vec![
+        Span::styled(hidden_text, Style::default().fg(Color::Cyan)),
+        Span::styled("  ", Style::default()),
+        Span::styled(files_text, Style::default().fg(Color::Cyan)),
+    ];
+    let toggle_line = Paragraph::new(Line::from(toggle_spans));
+    frame.render_widget(toggle_line, chunks[1]);
 
     // Draw search/bookmark input
     match mode {
@@ -107,7 +121,7 @@ pub fn draw_fuzzy(frame: &mut Frame, state: &FuzzyState, mode: &Mode) {
                         .border_style(Style::default().fg(Color::Blue))
                         .title(" BOOKMARK "),
                 );
-            frame.render_widget(input_block, chunks[1]);
+            frame.render_widget(input_block, chunks[2]);
         }
         Mode::BookmarkRemove => {
             let selected_name = state
@@ -130,7 +144,19 @@ pub fn draw_fuzzy(frame: &mut Frame, state: &FuzzyState, mode: &Mode) {
                         .border_style(Style::default().fg(Color::Red))
                         .title(" REMOVE BOOKMARK "),
                 );
-            frame.render_widget(input_block, chunks[1]);
+            frame.render_widget(input_block, chunks[2]);
+        }
+        Mode::CreateEntry(name) => {
+            let display = format!(" New entry (end with / for dir): {}█ ", name);
+            let input_block = Paragraph::new(display)
+                .style(Style::default().fg(Color::Green))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(Style::default().fg(Color::Green))
+                        .title(" CREATE "),
+                );
+            frame.render_widget(input_block, chunks[2]);
         }
         _ => {
             let search_display = format!(" Search: {} ", state.search_query);
@@ -253,7 +279,7 @@ pub fn draw_fuzzy(frame: &mut Frame, state: &FuzzyState, mode: &Mode) {
                         Span::styled(&item.entry.name, name_style),
                     ]);
                     ListItem::new(line)
-                } else {
+                } else if item.is_dir {
                     let (prefix, name_style, slash_style) = if is_selected {
                         let selection_color = if *mode == Mode::Search {
                             Color::DarkGray
@@ -288,6 +314,34 @@ pub fn draw_fuzzy(frame: &mut Frame, state: &FuzzyState, mode: &Mode) {
                         Span::styled("/", slash_style),
                     ]);
                     ListItem::new(line)
+                } else {
+                    // File rendering
+                    let (prefix, name_style) = if is_selected {
+                        (
+                            Span::styled(
+                                ">",
+                                Style::default()
+                                    .fg(Color::Yellow)
+                                    .add_modifier(Modifier::BOLD),
+                            ),
+                            Style::default()
+                                .fg(Color::Yellow)
+                                .add_modifier(Modifier::BOLD),
+                        )
+                    } else {
+                        (
+                            Span::raw(" "),
+                            Style::default().fg(Color::White),
+                        )
+                    };
+
+                    let line = Line::from(vec![
+                        num_span,
+                        prefix,
+                        Span::raw(" "),
+                        Span::styled(&item.entry.name, name_style),
+                    ]);
+                    ListItem::new(line)
                 }
             })
             .collect()
@@ -295,7 +349,54 @@ pub fn draw_fuzzy(frame: &mut Frame, state: &FuzzyState, mode: &Mode) {
 
     let list = List::new(items).block(Block::default().borders(Borders::ALL).title(title));
 
-    frame.render_widget(list, chunks[2]);
+    frame.render_widget(list, chunks[3]);
+}
+
+/// Draw the help screen
+fn draw_help(frame: &mut Frame) {
+    let help_text = vec![
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("NAVIGATION", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from("  j/k      Move selection up/down"),
+        Line::from("  h/l      Navigate out/in directories"),
+        Line::from("  g/G      Go to first/last item"),
+        Line::from("  Ctrl+U/D Page up/down"),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("SEARCH & SELECTION", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from("  /        Start search"),
+        Line::from("  Enter    Select item (cd or open in vim)"),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("BOOKMARKS", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from("  b        Bookmark selected directory"),
+        Line::from("  x        Remove bookmark"),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("TOGGLES & CREATION", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from("  .        Toggle hidden files"),
+        Line::from("  f        Toggle file visibility"),
+        Line::from("  a        Create new file/directory (end with /)"),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("OTHER", Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)),
+        ]),
+        Line::from("  Esc      Quit/cancel"),
+        Line::from("  ?        Show this help"),
+        Line::from(""),
+        Line::from("Press any key to return..."),
+    ];
+
+    let help_para = Paragraph::new(help_text)
+        .block(Block::default().borders(Borders::ALL).title(" Help "))
+        .style(Style::default().fg(Color::White));
+
+    frame.render_widget(help_para, frame.area());
 }
 
 /// A fuzzy search result item with matched path
@@ -305,15 +406,18 @@ pub struct FuzzyItem {
     pub match_score: i64,
     pub is_bookmark: bool,
     pub bookmark_key: Option<String>,
+    pub is_dir: bool,
 }
 
 impl FuzzyItem {
     pub fn new(entry: DirEntry, match_score: i64) -> Self {
+        let is_dir = entry.is_dir;
         Self {
             entry,
             match_score,
             is_bookmark: false,
             bookmark_key: None,
+            is_dir,
         }
     }
 
@@ -322,10 +426,12 @@ impl FuzzyItem {
             entry: DirEntry {
                 path: PathBuf::from(&db_entry.path),
                 name: db_entry.name.clone(),
+                is_dir: true,
             },
             match_score: 0,
             is_bookmark: true,
             bookmark_key: db_entry.bookmark_key.clone(),
+            is_dir: true,
         }
     }
 
@@ -345,6 +451,7 @@ pub struct FuzzyState {
     pub matcher: FuzzyMatchEngine,
     pub current_dir: PathBuf,
     pub show_hidden: bool,
+    pub show_files: bool,
     pub bookmarks: Vec<DbDirEntry>,
     pub motion_count: Option<usize>,
 }
@@ -352,7 +459,7 @@ pub struct FuzzyState {
 impl FuzzyState {
     /// Create a new FuzzyState by scanning the given directory
     pub fn new_in_dir(dir: &Path, show_hidden: bool) -> Self {
-        let entries = fs::scan_directories(dir, show_hidden).unwrap_or_default();
+        let entries = fs::scan_directories(dir, show_hidden, false).unwrap_or_default();
         let items: Vec<FuzzyItem> = entries.into_iter().map(|e| FuzzyItem::new(e, 0)).collect();
 
         Self {
@@ -364,6 +471,7 @@ impl FuzzyState {
             matcher: FuzzyMatchEngine::new(),
             current_dir: dir.to_path_buf(),
             show_hidden,
+            show_files: false,
             bookmarks: Vec::new(),
             motion_count: None,
         }
@@ -382,6 +490,7 @@ impl FuzzyState {
             matcher: FuzzyMatchEngine::new(),
             current_dir: PathBuf::from("/"),
             show_hidden: false,
+            show_files: false,
             bookmarks: Vec::new(),
             motion_count: None,
         }
@@ -430,10 +539,11 @@ impl FuzzyState {
     }
 
     fn load_dir(&mut self, dir: &Path) {
-        let entries = fs::scan_directories(dir, self.show_hidden).unwrap_or_default();
+        let entries = fs::scan_directories(dir, self.show_hidden, self.show_files).unwrap_or_default();
         let items: Vec<FuzzyItem> = entries
             .into_iter()
             .map(|e| {
+                let is_dir = e.is_dir;
                 let path_str = e.path.to_string_lossy().to_string();
                 if let Some(bm) = self.bookmarks.iter().find(|b| b.path == path_str) {
                     FuzzyItem {
@@ -441,6 +551,7 @@ impl FuzzyState {
                         match_score: 0,
                         is_bookmark: true,
                         bookmark_key: bm.bookmark_key.clone(),
+                        is_dir,
                     }
                 } else {
                     FuzzyItem::new(e, 0)
@@ -449,8 +560,8 @@ impl FuzzyState {
             .collect();
 
         self.current_dir = dir.to_path_buf();
-        self.all_items = items.clone();
-        self.items = items;
+        self.all_items = items;
+        self.items = self.all_items.clone();
         self.search_query.clear();
         self.selected_index = 0;
         self.scroll_offset = 0;
@@ -504,14 +615,18 @@ impl FuzzyState {
         let pattern = &self.search_query;
         let matcher = &self.matcher;
 
-        // Filter directory items
+        // Filter directory items - preserve original item data, only update score
         let mut filtered: Vec<FuzzyItem> = self
             .all_items
             .iter()
             .filter_map(|item| {
                 matcher
                     .get_score(pattern, &item.entry.name)
-                    .map(|score| FuzzyItem::new(item.entry.clone(), score))
+                    .map(|score| {
+                        let mut result = item.clone();
+                        result.match_score = score;
+                        result
+                    })
             })
             .collect();
 
@@ -532,10 +647,7 @@ impl FuzzyState {
 
             if let Some(score) = best_score {
                 // Don't add duplicate if bookmark path is already in directory items
-                let already_present = filtered
-                    .iter()
-                    .any(|item| item.entry.path.to_string_lossy() == bm.path);
-                if !already_present {
+                if !filtered.iter().any(|item| item.entry.path == bm.path) {
                     let mut bm_item = FuzzyItem::from_bookmark(bm);
                     bm_item.match_score = score;
                     filtered.push(bm_item);
@@ -627,6 +739,19 @@ impl FuzzyState {
         self.load_dir(&dir);
     }
 
+    /// Toggle file visibility and reload directory
+    pub fn toggle_files(&mut self) {
+        self.show_files = !self.show_files;
+        let dir = self.current_dir.clone();
+        self.load_dir(&dir);
+    }
+
+    /// Reload the current directory
+    pub fn reload(&mut self) {
+        let dir = self.current_dir.clone();
+        self.load_dir(&dir);
+    }
+
     /// Get number of results
     pub fn result_count(&self) -> usize {
         self.items.len()
@@ -642,6 +767,7 @@ mod tests {
         DirEntry {
             path: PathBuf::from(format!("/test/{}", name)),
             name: name.to_string(),
+            is_dir: true,
         }
     }
 

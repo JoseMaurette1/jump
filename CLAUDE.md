@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Jump is a Vim-inspired directory navigation CLI tool written in Rust. It replaces `cd` with fuzzy search, bookmarks, and shell integration. Current version: 1.1.0.
+Jump is a Vim-inspired directory navigation CLI tool written in Rust. It replaces `cd` with fuzzy search, bookmarks, file creation, and shell integration. Current version: 1.2.0.
 
 ## Build & Test Commands
 
@@ -23,11 +23,11 @@ The binary entry point is `src/main.rs`, which parses args via `src/config.rs` (
 **Module structure:**
 
 - `config.rs` — CLI argument parsing, returns `(ParseResult, BookmarkAction)`. Custom hand-rolled parser using `env::args()`.
-- `fs.rs` — Directory scanning with `walkdir` (depth=1, no symlink following). Defines its own `DirEntry` (path + name) used by the UI.
+- `fs.rs` — Directory scanning with `walkdir` (depth=1, no symlink following). Defines its own `DirEntry` (path + name + `is_dir` bool) used by the UI. `scan_directories(dir, show_hidden, show_files)` — when `show_files=true`, regular files are included alongside dirs (sorted: dirs first, then files, both alphabetically).
 - `database/db.rs` — SQLite persistence (WAL mode) for bookmarks. DB path via `directories` crate (`~/.local/share/jump/jump.db` on Linux).
 - `database/entry.rs` — `DirEntry` struct for database records (with `is_bookmark`, `bookmark_key` fields). Distinct from `fs::DirEntry`.
 - `fuzzy.rs` → `fuzzy/matcher.rs` — Wrapper around `fuzzy_matcher::skim::SkimMatcherV2`.
-- `ui/fuzzy.rs` — Core TUI: `FuzzyState` state machine + `draw_fuzzy()` ratatui renderer. Largest file (~800 lines), contains filtering/navigation/selection logic.
+- `ui/fuzzy.rs` — Core TUI: `FuzzyState` state machine + `draw_fuzzy()` ratatui renderer. Contains filtering/navigation/selection logic. Also has `draw_help()` for the `?` help screen. `FuzzyState` tracks `show_files` toggle and exposes `toggle_files()` and `reload()` methods. `FuzzyItem` carries `is_dir` to drive different rendering (dirs get trailing `/`, files render in white/yellow).
 - `input.rs` — Terminal key event handling via crossterm. Maps raw key events to `InputEvent` enum.
 - `shell.rs` — Shell init script and completion generation for bash/zsh/fish. Tests in `shell/tests.rs`.
 
@@ -38,11 +38,13 @@ The binary entry point is `src/main.rs`, which parses args via `src/config.rs` (
 4. Event loop in `main.rs`: reads keys → mutates `FuzzyState` → renders via `draw_fuzzy()`
 5. On Enter: prints selected path to stdout (shell wrapper does the `cd`)
 
-**Mode state machine** (`main.rs`): `Normal` → navigation, `Search` → fuzzy input, `BookmarkInput(String)` → entering bookmark alias, `BookmarkRemove` → confirming removal.
+**Mode state machine** (`main.rs`): `Normal` → navigation, `Search` → fuzzy input, `BookmarkInput(String)` → entering bookmark alias, `BookmarkRemove` → confirming removal, `CreateEntry(String)` → typing a new file/dir name (trailing `/` → directory, otherwise → file), `ShowHelp` → full-screen help overlay.
 
-**Two DirEntry types exist:** `fs::DirEntry` (simple path+name for UI display) and `database::entry::DirEntry` (full record with `is_bookmark`, `bookmark_key` for persistence).
+**Two DirEntry types exist:** `fs::DirEntry` (path + name + `is_dir` for UI display) and `database::entry::DirEntry` (full record with `is_bookmark`, `bookmark_key` for persistence).
 
-**Vim keybindings:** `/` to search, `j/k` navigation, `h/l` parent/child navigation, `g/G` top/bottom, `Ctrl+U/D` page up/down, `b` bookmark, `x` remove bookmark, `.` toggle hidden, `[0-9]` motion count prefix (e.g. `3j`), `Enter` select, `Esc` quit.
+**Vim keybindings:** `/` to search, `j/k` navigation, `h/l` parent/child navigation, `g/G` top/bottom, `Ctrl+U/D` page up/down, `b` bookmark, `x` remove bookmark, `.` toggle hidden, `f` toggle file visibility, `a` create file/dir (`CreateEntry` mode — trailing `/` makes a dir), `?` show help overlay, `[0-9]` motion count prefix (e.g. `3j`), `Enter` select (cd for dirs, open in `vim` for files), `Esc` quit/cancel.
+
+**Shell integration (`shell/jump.sh`):** The `jump()` wrapper now handles three cases: directory → `cd`, file → open with `vim`, otherwise → no-op. This enables selecting files from the TUI to open them directly in Neovim.
 
 ## Key Dependencies
 

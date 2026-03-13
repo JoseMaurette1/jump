@@ -78,10 +78,18 @@ export function Installation() {
         
         <div className="mt-4">
             <h3 className="font-semibold mb-2">Bash / Zsh</h3>
-            <CodeBlock 
+            <CodeBlock
                 id="shell"
                 code={`jump() {
-  cd "$(command jump "$@")"
+    local target
+    target="$(command jump "$@")"
+    if [[ -n "$target" ]]; then
+        if [[ -d "$target" ]]; then
+            cd "$target"
+        elif [[ -f "$target" ]]; then
+            vim "$target"
+        fi
+    fi
 }
 alias j="jump"`}
             />
